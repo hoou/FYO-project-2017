@@ -54,3 +54,13 @@ laserBtn.on("mouse:down", function () {
 canvas.add(laser);
 canvas.add(crystal);
 
+
+//listener for refraction slider change
+$("#range_slider").on("input change", function () {
+    refractionChange(this.value);
+});
+
+function refractionChange(value) {
+    $("#index_value").text(value);
+    console.log("Refraction change " + value);
+}
