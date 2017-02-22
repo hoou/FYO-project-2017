@@ -1,0 +1,113 @@
+% ----- formatovani dokumentu -----------------------------------------------
+\documentclass[12pt,a4paper,titlepage,final]{book}
+\usepackage[utf8]{inputenc}
+\usepackage[T1, IL2]{fontenc}
+\usepackage{graphicx}
+\usepackage{epstopdf}
+\usepackage[margin=2cm]{caption}
+\usepackage[top=3cm, left=2cm, right=2cm, text={17cm, 24cm}, ignorefoot]{geometry}
+\usepackage{color}
+\usepackage{url}
+\usepackage{setspace}
+\singlespacing
+\usepackage[square, numbers]{natbib} 
+\pagestyle{plain}
+\pagenumbering{arabic}
+\setcounter{page}{1}
+\setcounter{secnumdepth}{1}
+\setlength{\parindent}{1cm}	
+\usepackage{natbib}
+
+
+% ----- vyberte jazyk -------------------------------------------------------
+\usepackage[english,slovak]{babel}
+%\usepackage[english]{babel}
+
+% ----- dopiste titulky -----------------------------------------------------
+\newcommand\Course{Fyzikálna optika}
+\newcommand\WorkTitle{Disperzia svetla}
+\newcommand\AuthorA{Martin Matejčík}
+\newcommand\AuthorAEmail{xmatej46@stud.fit.vutbr.cz}
+\newcommand\AuthorB{Tibor Mikita}
+\newcommand\AuthorBEmail{xmikit01@stud.fit.vutbr.cz}
+\newcommand\Faculty{Fakulta Informačních Technologií}
+\newcommand\School{Vysoké Učení Technické v Brně}
+
+\usepackage[
+pdftitle={\WorkTitle},
+pdfauthor={\AuthorA, \AuthorB},
+bookmarks=true,
+colorlinks=true,
+breaklinks=true,
+urlcolor=blue,
+citecolor=blue,
+linkcolor=blue,
+unicode=true,
+]
+{hyperref}
+
+
+% ----- titulni strana ------------------------------------------------------
+
+\begin{document}
+	\begin{titlepage}
+	\begin{center}
+		\includegraphics[height=5cm]{images/logo.pdf}
+	\end{center}
+	\vfill
+	\begin{center}
+		\begin{Large}
+			\Course\\
+		\end{Large}
+		\bigskip
+		\begin{Huge}
+			\WorkTitle\\
+		\end{Huge}
+	\end{center}
+	\vfill
+	\begin{center}
+		\begin{large}
+			\today
+		\end{large}
+	\end{center}
+	\vfill
+	\begin{flushleft}
+		\begin{large}
+			\begin{tabular}{lll}
+				Autori: & \AuthorA, & \url{\AuthorAEmail} \\
+				        & \AuthorB, & \url{\AuthorBEmail} \\
+				& & \\
+				& \Faculty \\
+				& \School \\
+			\end{tabular}
+		\end{large}
+	\end{flushleft}
+\end{titlepage}		
+	
+\section*{Abstrakt}
+V tejto práci je predstavena optická disperzia svetla.
+
+\section*{Kľúčové slová}
+disperzia, svetlo
+% ----- obsah --------------------------------------------------------------
+	
+\tableofcontents
+
+% ---------------------------------------------------------------------------
+\newpage
+\chapter{Úvod}
+
+%---------------------------------------------------------------------------
+\chapter{Disperzia svetla}
+
+
+%---------------------------------------------------------------------------
+
+\bibliographystyle{plain}
+
+
+\bibliography{reference}
+\addcontentsline{toc}{chapter}{Literatúra}
+
+\end{document}
+

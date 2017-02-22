@@ -475,3 +475,13 @@ prisms.forEach(function (prism) {
 canvas.on('mouse:down', function (e) {
     getMouseCoords(e);
 });
+
+//listener for refraction slider change
+$("#range_slider").on("input change", function () {
+    refractionChange(this.value);
+});
+
+function refractionChange(value) {
+    $("#index_value").text(value);
+    console.log("Refraction change " + value);
+}
