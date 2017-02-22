@@ -5,26 +5,41 @@
     <title>FYO project 2017</title>
 
     <!-- css -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"
+          integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
     <link rel="stylesheet" href="css/style.css">
 
     <!-- js libraries -->
-    <script
-            src="https://code.jquery.com/jquery-3.1.1.min.js"
+    <script src="https://code.jquery.com/jquery-3.1.1.min.js"
             integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
             crossorigin="anonymous"></script>
+
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"
+            integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+            crossorigin="anonymous"></script>
+
     <script src="http://cdnjs.cloudflare.com/ajax/libs/fabric.js/1.7.6/fabric.min.js"></script>
 
 </head>
 <body>
-<div id="controls">
-    <p>Index of Refraction (n)</p>
-    <label>
-        <input id="range_slider" type="range" min="1.4" max="1.9" step="0.01">
-    </label>
-    <p id="index_value"></p>
-</div>
 
-<canvas id="c"></canvas>
+<canvas id="c">Sorry, your browser doesn't support the &lt;canvas&gt; element.</canvas>
+
+<!--<div class="container">
+    <div class="row">
+        <div class="col-md-7">
+        </div>
+        <div class="col-md-5">
+            <div id="controls">
+                <p>Index of Refraction (n)</p>
+                <label>
+                    <input id="range_slider" type="range" min="1.4" max="1.9" step="0.01">
+                </label>
+                <p id="index_value"></p>
+            </div>
+        </div>
+    </div>
+</div>-->
 
 <!-- js -->
 <script type="text/javascript" src="js/main.js"></script>
