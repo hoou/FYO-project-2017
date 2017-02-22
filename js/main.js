@@ -423,10 +423,7 @@ function resizeCanvas() {
 
 }
 
-/******************************************************************************
- * Function converts length of wave to rgba representation                     *
- * Code taken from http://scienceprimer.com and edited by me                   *
- ******************************************************************************/
+// http://scienceprimer.com/javascript-code-convert-light-wavelength-color
 function wavelengthToColor(wavelength) {
     "use strict";
     var R,
