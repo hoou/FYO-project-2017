@@ -1,7 +1,5 @@
-#controls {
-    display: inline;
-    position: relative;
-    float: right;
+body {
+    margin: 0;
 }
 
 canvas {
