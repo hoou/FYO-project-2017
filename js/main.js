@@ -357,11 +357,40 @@ function Laser(id) {
     this.id = id;
 
     this.body = new fabric.Rect({
-        fill: "gray",
         width: 50,
         height: 20,
         originX: 'center',
         originY: 'center'
+    });
+    this.body.setGradient("fill", {
+        x1: 0,
+        y1: 0,
+        x2: 0,
+        y2: this.body.height,
+        colorStops: {
+            0: '#666',
+            0.3: "#fff",
+            1: '#666'
+        }
+    });
+
+    this.frontPart = new fabric.Rect({
+        width: 5,
+        height: 12,
+        originX: 'center',
+        originY: 'center',
+        left: 27
+    });
+    this.frontPart.setGradient("fill", {
+        x1: 0,
+        y1: 0,
+        x2: 0,
+        y2: this.frontPart.height,
+        colorStops: {
+            0: '#666',
+            0.15: "#fff",
+            1: '#666'
+        }
     });
 
     this.beam = new LaserBeam();
@@ -384,15 +413,27 @@ function Laser(id) {
         left: -30
     });
 
-    this.button = new fabric.Rect({
+    this.button = new fabric.Circle({
+        radius: 6,
         fill: "red",
-        width: 10,
-        height: 10,
         originX: 'center',
-        originY: 'center'
+        originY: 'center',
+        left: 10
+    });
+    this.button.setGradient("fill", {
+        x1: 0,
+        y1: 0,
+        x2: this.button.width,
+        y2: 10,
+        colorStops: {
+            0: '#f99',
+            0.3: "#f00",
+            0.6: "#f00",
+            1: '#800'
+        }
     });
 
-    this.entity = new fabric.Group([this.body, this.button, this.colorLabel, this.textLabel], {
+    this.entity = new fabric.Group([this.body, this.button, this.colorLabel, this.textLabel, this.frontPart], {
         left: 150,
         top: 200,
         originX: 'center',
