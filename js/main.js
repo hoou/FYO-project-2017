@@ -3,6 +3,8 @@ function App(canvasSelector) {
 
     this.canvas = null;
 
+    this.gui = null;
+
     this.lasers = [];
     this.prisms = [];
 
@@ -19,14 +21,40 @@ function App(canvasSelector) {
             self.getMouseCoords(e);
         });
 
+        this.resizeCanvas();
+
+        this.gui = new Gui(self);
+
         this.addLaser();
         this.addPrism();
+    };
 
-        this.resizeCanvas();
+    this.reset = function () {
+        this.removeIntersectionsAndSegments();
+        this.lasers.forEach(function (laser) {
+            self.canvas.remove(laser.entity);
+        });
+        this.lasers = [];
+        this.prisms.forEach(function (prism) {
+            self.canvas.remove(prism.entity);
+        });
+        this.prisms = [];
+
+        this.canvas.renderAll();
+
+        this.gui.reset();
+
+        this.addLaser();
+        this.addPrism();
     };
 
     this.addLaser = function () {
-        var newLaser = new Laser();
+        if (this.lasers.length >= 5) {
+            alert("Maximum 5 lasers allowed");
+            return;
+        }
+
+        var newLaser = new Laser(this.lasers.length + 1);
 
         newLaser.entity.on("mousedown", function (e) {
             var innerTarget = newLaser.entity._searchPossibleTargets(e.e);
@@ -51,6 +79,9 @@ function App(canvasSelector) {
 
         this.lasers.push(newLaser);
         this.canvas.add(newLaser.entity);
+        this.redraw();
+
+        this.gui.addLaser(newLaser);
     };
 
     this.addPrism = function () {
@@ -93,18 +124,27 @@ function App(canvasSelector) {
             });
             laser.beam.light.segments = [];
 
-            laser.beam.spectrum.forEach(function (light) {
-                light.intersections.forEach(function (intersection) {
-                    self.canvas.remove(intersection);
-                });
-                light.intersections = [];
-
-                light.segments.forEach(function (segment) {
-                    self.canvas.remove(segment);
-                });
-                light.segments = [];
-            })
+            self.removeSpectrum(laser);
         })
+    };
+
+    this.removeSpectrum = function (laser) {
+        laser.beam.spectrum.forEach(function (light) {
+            light.intersections.forEach(function (intersection) {
+                self.canvas.remove(intersection);
+            });
+            light.intersections = [];
+
+            light.segments.forEach(function (segment) {
+                self.canvas.remove(segment);
+            });
+            light.segments = [];
+        });
+    };
+
+    this.destroySpectrum = function (laser) {
+        this.removeSpectrum(laser);
+        laser.beam.spectrum = [];
     };
 
     this.drawCircle = function (x, y, color) {
@@ -130,6 +170,7 @@ function App(canvasSelector) {
     this.redraw = function () {
         self.removeIntersectionsAndSegments();
         self.lasers.forEach(function (laser) {
+            laser.beam.light.updateStroke();
             laser.beam.light.entity.setWidth(3000);
             laser.beam.light.segments.push(laser.beam.light.entity);
 
@@ -158,7 +199,7 @@ function App(canvasSelector) {
 
             laser.beam.spectrum.forEach(function (light) {
                 // How much should new beam segment rotate
-                var newAngle = light.entity.wavelength / 100;
+                var newAngle = light.wavelength / 100;
 
                 light.entity.setLeft(firstIntersection.x);
                 light.entity.setTop(firstIntersection.y);
@@ -260,8 +301,10 @@ function App(canvasSelector) {
     this.init();
 }
 
-function Laser(x, y) {
+function Laser(id) {
     var self = this;
+
+    this.id = id;
 
     this.body = new fabric.Rect({
         fill: "gray",
@@ -269,6 +312,26 @@ function Laser(x, y) {
         height: 20,
         originX: 'center',
         originY: 'center'
+    });
+
+    this.beam = new LaserBeam();
+
+    this.textLabel = new fabric.Text(id.toString(), {
+        fontSize: 15,
+        fontWeight: 'bold',
+        fontFamily: 'Courier New',
+        originX: 'left',
+        originY: 'center',
+        left: -20
+    });
+
+    this.colorLabel = new fabric.Rect({
+        fill: "white",
+        width: 5,
+        height: 20,
+        originX: 'left',
+        originY: 'center',
+        left: -30
     });
 
     this.button = new fabric.Rect({
@@ -279,11 +342,9 @@ function Laser(x, y) {
         originY: 'center'
     });
 
-    this.beam = new LaserBeam();
-
-    this.entity = new fabric.Group([this.body, this.button], {
-        left: x || 150,
-        top: y || 200,
+    this.entity = new fabric.Group([this.body, this.button, this.colorLabel, this.textLabel], {
+        left: 150,
+        top: 200,
         originX: 'center',
         originY: 'center',
         centeredRotation: false,
@@ -349,8 +410,7 @@ function LaserBeam(wavelength) {
     };
 
     this.createSpectrum = function () {
-        if (this.light.entity.wavelength == 0) {
-            // Visible(white) light
+        if (this.light.visibleLight) {
             var min = 400;
             var max = 650; //650
             var step = 20;
@@ -359,7 +419,7 @@ function LaserBeam(wavelength) {
             }
         } else {
             // Light with just one wavelength
-            this.spectrum.push(new Light(this.light.entity.wavelength)); // Make a copy
+            this.spectrum.push(new Light(this.light.wavelength)); // Make a copy
         }
     };
 
@@ -369,9 +429,12 @@ function LaserBeam(wavelength) {
 function Light(wavelength) {
     var self = this;
 
+    this.visibleLight = true;
+
+    this.wavelength = wavelength || 650;
+
     this.entity = new fabric.Line([0, 0, 3000, 0], {
-        wavelength: wavelength || 0,
-        stroke: (wavelength && wavelength != 0 ? self.wavelengthToColor(wavelength) : "white"),
+        stroke: (wavelength ? self.wavelengthToColor(wavelength) : "white"),
         strokeWidth: 1,
         selectable: false,
         hasControls: false,
@@ -386,6 +449,14 @@ function Light(wavelength) {
     this.segments = [];
 
     this.intersections = [];
+
+    this.updateStroke = function () {
+        if (this.visibleLight) {
+            this.entity.setStroke("white");
+        } else {
+            this.entity.setStroke(this.wavelengthToColor(this.wavelength));
+        }
+    };
 
     this.getLastSegment = function () {
         return this.segments[this.segments.length - 1];
@@ -527,4 +598,69 @@ function Prism(x, y) {
             new fabric.Point(this.entity.oCoords.mt.x, this.entity.oCoords.mt.y)
         ]
     }
+}
+
+function Gui(app) {
+    this.gui = null;
+    this.lasersFolder = null;
+    this.prismsFolder = null;
+
+    this.init = function () {
+        this.gui = new dat.GUI();
+
+        var generalFolder = this.gui.addFolder("General");
+        generalFolder.add(app, "reset").name("Reset App");
+
+        this.lasersFolder = this.gui.addFolder('Lasers');
+        this.lasersFolder.add(app, 'addLaser').name("Add New Laser");
+
+        this.prismsFolder = this.gui.addFolder('Prisms');
+        this.prismsFolder.add(app, 'addPrism').name("Add New Prism");
+
+        //TODO maybe uncomment, dont know what is actually better :-)
+        // generalFolder.open();
+        // this.lasersFolder.open();
+        // this.prismsFolder.open();
+    };
+
+    this.reset = function () {
+        this.gui.destroy();
+        this.init();
+    };
+
+    this.addLaser = function (laser) {
+        var newFolder = this.lasersFolder.addFolder("Laser " + laser.id);
+        var controller;
+        var button = newFolder.add(laser.beam.light, "visibleLight");
+        button.name("Visible Light");
+        button.onChange(function (value) {
+            if (value) {
+                controller.domElement.style.pointerEvents = "none";
+                controller.domElement.style.opacity = .5;
+                laser.colorLabel.setFill("white");
+            } else {
+                controller.domElement.style.pointerEvents = "";
+                controller.domElement.style.opacity = 1;
+                laser.colorLabel.setFill(laser.beam.light.wavelengthToColor(laser.beam.light.wavelength));
+            }
+            laser.beam.light.updateStroke();
+            app.destroySpectrum(laser);
+            laser.beam.createSpectrum();
+            app.redraw();
+        });
+
+        controller = newFolder.add(laser.beam.light, 'wavelength', 400, 650);
+        controller.onChange(function (value) {
+            laser.colorLabel.setFill(laser.beam.light.wavelengthToColor(value));
+            laser.beam.light.updateStroke();
+            app.destroySpectrum(laser);
+            laser.beam.createSpectrum();
+            app.redraw();
+        });
+        controller.name("Wavelength [nm]");
+        controller.domElement.style.pointerEvents = "none";
+        controller.domElement.style.opacity = .5;
+    };
+
+    this.init();
 }
