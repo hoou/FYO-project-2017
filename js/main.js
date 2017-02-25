@@ -8,6 +8,8 @@ function App(canvasSelector) {
     this.lasers = [];
     this.prisms = [];
 
+    this.showIntersections = false;
+
     this.init = function () {
         this.canvas = new fabric.Canvas(canvasSelector, {
             renderOnAddRemove: false,
@@ -30,7 +32,7 @@ function App(canvasSelector) {
     };
 
     this.reset = function () {
-        this.removeIntersectionsAndSegments();
+        this.destroyIntersectionsAndSegments();
         this.lasers.forEach(function (laser) {
             self.canvas.remove(laser.entity);
         });
@@ -41,6 +43,8 @@ function App(canvasSelector) {
         this.prisms = [];
 
         this.canvas.renderAll();
+
+        this.showIntersections = false;
 
         this.gui.reset();
 
@@ -112,7 +116,7 @@ function App(canvasSelector) {
         return closestIntersectionOfAll ? closestIntersectionOfAll.point : null;
     };
 
-    this.removeIntersectionsAndSegments = function () {
+    this.destroyIntersectionsAndSegments = function () {
         this.lasers.forEach(function (laser) {
             laser.beam.light.intersections.forEach(function (intersection) {
                 self.canvas.remove(intersection);
@@ -161,14 +165,60 @@ function App(canvasSelector) {
             hasRotatingPoint: false
         });
 
-        //TODO make this an option
-        // canvas.add(newCircle);
+        if (this.showIntersections) {
+            this.canvas.add(newCircle);
+            this.drawCircle.drawn = true;
+        } else {
+            this.drawCircle.drawn = false;
+        }
 
         return newCircle;
     };
+    this.drawCircle.drawn = false;
+
+    this.toggleIntersectionsVisibility = function () {
+        if (this.showIntersections) {
+            if (!this.drawCircle.drawn) {
+                this.lasers.forEach(function (laser) {
+                    laser.beam.light.intersections.forEach(function (intersection) {
+                        self.canvas.add(intersection);
+                    });
+                    laser.beam.spectrum.forEach(function (light) {
+                        light.intersections.forEach(function (intersection) {
+                            self.canvas.add(intersection);
+                        })
+                    })
+                });
+                this.drawCircle.drawn = true;
+            } else {
+                this.lasers.forEach(function (laser) {
+                    laser.beam.light.intersections.forEach(function (intersection) {
+                        intersection.visible = true;
+                    });
+                    laser.beam.spectrum.forEach(function (light) {
+                        light.intersections.forEach(function (intersection) {
+                            intersection.visible = true;
+                        })
+                    })
+                })
+            }
+        } else {
+            this.lasers.forEach(function (laser) {
+                laser.beam.light.intersections.forEach(function (intersection) {
+                    intersection.visible = false;
+                });
+                laser.beam.spectrum.forEach(function (light) {
+                    light.intersections.forEach(function (intersection) {
+                        intersection.visible = false;
+                    })
+                })
+            })
+        }
+        this.canvas.renderAll();
+    };
 
     this.redraw = function () {
-        self.removeIntersectionsAndSegments();
+        self.destroyIntersectionsAndSegments();
         self.lasers.forEach(function (laser) {
             laser.beam.light.updateStroke();
             laser.beam.light.entity.setWidth(3000);
@@ -606,10 +656,17 @@ function Gui(app) {
     this.prismsFolder = null;
 
     this.init = function () {
-        this.gui = new dat.GUI();
+        this.gui = new dat.GUI({width: 300});
 
         var generalFolder = this.gui.addFolder("General");
+
         generalFolder.add(app, "reset").name("Reset App");
+
+        var showIntersectionsOption = generalFolder.add(app, "showIntersections");
+        showIntersectionsOption.name("Show Intersections");
+        showIntersectionsOption.onChange(function (value) {
+            app.toggleIntersectionsVisibility();
+        });
 
         this.lasersFolder = this.gui.addFolder('Lasers');
         this.lasersFolder.add(app, 'addLaser').name("Add New Laser");
