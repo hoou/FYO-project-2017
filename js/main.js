@@ -33,19 +33,13 @@ function Laser(x, y) {
     });
 
     this.buttonToggle = function () {
-        this.beam.entity.visible = !this.beam.entity.visible;
-        if (!this.beam.entity.visible) {
-            this.button.setFill("red");
-            this.beam.entity.setVisible(false);
-            this.beam.clearIntersections();
-            this.beam.clearSegments();
-        } else {
-            this.button.setFill("green");
-            this.beam.entity.setVisible(true);
-            this.beam.checkIntersections();
-        }
+        this.beam.toggleVisible();
+        self.entity.setCoords();
+        self.beam.move(self.entity.left, self.entity.top);
+        this.beam.redraw();
     };
 
+    // http://stackoverflow.com/questions/34047094/fabricjs-catch-click-on-object-inside-group
     this.entity._searchPossibleTargets = function (e) {
         var pointer = canvas.getPointer(e, true);
         var i = canvas._objects.length,
@@ -71,140 +65,190 @@ function Laser(x, y) {
     });
 
     this.entity.on("moving", function (e) {
-        this.setCoords();
-        self.beam.move(self.entity.left, self.entity.top);
+        if (self.beam.getVisible()) {
+            self.entity.setCoords();
+            self.beam.move(self.entity.left, self.entity.top);
+            self.beam.redraw();
+        }
     });
 
     this.entity.on("rotating", function (e) {
-        this.setCoords();
-        self.beam.entity.setAngle(this.get('angle'));
-        self.beam.entity.setCoords();
-        self.beam.checkIntersections();
+        self.beam.light.entity.setAngle(self.entity.get("angle"));
+        self.beam.redraw();
     });
-
-    // Init laser beam position
-    this.beam.move(this.entity.left, this.entity.top);
 }
 
-function LaserBeam() {
+function LaserBeam(wavelength) {
     var self = this;
 
-    this.entity = new fabric.Line([0, 0, 3000, 0], {
-        stroke: "white",
-        strokeWidth: 1,
-        visible: false,
-        selectable: false,
-        centeredRotation: false,
-        originX: 'left',
-        originY: 'top'
-    });
+    var visible = false;
 
-    var originColor = this.entity.stroke;
+    this.spectrum = [];
 
-    this.intersections = [];
-
-
-    this.segments = [];
+    this.light = new Light(wavelength);
 
     this.move = function (x, y) {
-        this.entity.setLeft(x);
-        this.entity.setTop(y);
-        this.entity.setCoords();
-        this.checkIntersections();
+        this.light.entity.setLeft(x);
+        this.light.entity.setTop(y);
+        this.light.entity.setCoords();
     };
 
-    this.checkIntersections = function () {
-        if (this.entity.visible == false)
+    this.getVisible = function () {
+        return visible;
+    };
+
+    this.toggleVisible = function () {
+        visible = !visible;
+        this.spectrum.forEach(function (light) {
+            light.entity.visible = visible;
+        });
+        this.light.entity.visible = visible;
+    };
+
+    this.redraw = function () {
+        this.light.clearIntersections();
+        this.light.clearSegments();
+        this.light.entity.setWidth(3000);
+        this.light.segments.push(this.light.entity);
+
+        if (!visible) {
+            this.spectrum.forEach(function (light) {
+                light.clearIntersections();
+                light.clearSegments();
+            });
+            canvas.renderAll();
             return;
-
-        // canvas.removeAllCircles();
-        self.clearIntersections();
-        self.clearSegments();
-        self.segments.push(self.entity);
-
-        // canvas.remove(this.polyBeam);
-        this.entity.setStroke(originColor);
-
-        prisms.setCoords();
-        this.entity.setCoords();
+        }
 
         var closestIntersection;
 
-        var count = 1;
+        prisms.setCoords();
+        this.light.entity.setCoords();
 
-        while (closestIntersection = this.findClosestIntersectionWithPrisms()) {
-            //TODO this is just for safety reasons - remove it or make it feature
-            if (count == 100) {
-                break;
-            }
-
-            var circleDrawn = drawCircle(closestIntersection.x, closestIntersection.y, 'red');
-            self.intersections.push(circleDrawn);
-
-            // How much should new beam segment rotate
-            var degrees = 20;
-
-            var newBeamSegment = new fabric.Line([0, 0, 3000, 0], {
-                stroke: 'blue',
-                strokeWidth: 1,
-                selectable: false,
-                centeredRotation: false,
-                originX: 'left',
-                originY: 'top',
-                left: closestIntersection.x,
-                top: closestIntersection.y
+        if (!(closestIntersection = this.light.findClosestIntersectionWithPrisms())) {
+            canvas.add(this.light.entity);
+            canvas.sendToBack(this.light.entity);
+            this.spectrum.forEach(function (light) {
+                light.clearIntersections();
+                light.clearSegments();
             });
-
-            newBeamSegment.setAngle(degrees + this.getLastSegment().getAngle());
-            newBeamSegment.setCoords();
-
-            var removedSegment = this.segments.pop();
-            canvas.remove(removedSegment);
-
-            var shortenLastSegment = new fabric.Line([0, 0, distance(removedSegment.left, removedSegment.top, closestIntersection.x, closestIntersection.y), 0], {
-                stroke: 'blue',
-                strokeWidth: 1,
-                selectable: false,
-                centeredRotation: false,
-                originX: 'left',
-                originY: 'top',
-                left: removedSegment.left,
-                top: removedSegment.top
-            });
-
-            shortenLastSegment.setAngle(removedSegment.getAngle());
-
-            this.segments.push(shortenLastSegment, newBeamSegment);
-
             canvas.renderAll();
-
-            count++;
+            return;
         }
 
-        // Draw all segments
-        this.segments.forEach(function (segment) {
-            canvas.add(segment);
-        });
+        this.light.entity.setWidth(this.light.entity.getCoords()[0].distanceFrom(closestIntersection));
 
-        // Send first beam segment(coming from laser body) to back, so it is not being seen in middle of body
-        canvas.sendToBack(this.segments[0]);
+        var firstIntersection = closestIntersection;
+
+        this.spectrum.forEach(function (light) {
+            // How much should new beam segment rotate
+            var newAngle = light.entity.wavelength / 100;
+
+            light.entity.setLeft(firstIntersection.x);
+            light.entity.setTop(firstIntersection.y);
+            light.entity.setAngle(self.light.entity.get("angle") + newAngle);
+            light.entity.setCoords();
+
+            light.clearIntersections();
+            var firstIntersectionDrawn = drawCircle(firstIntersection.x, firstIntersection.y, 'red');
+            light.intersections.push(firstIntersectionDrawn);
+
+            light.clearSegments();
+            light.segments.push(light.entity);
+
+            prisms.setCoords();
+            light.entity.setCoords();
+
+            while (closestIntersection = light.findClosestIntersectionWithPrisms()) {
+                var circleDrawn = drawCircle(closestIntersection.x, closestIntersection.y, 'red');
+                light.intersections.push(circleDrawn);
+
+                var newBeamSegment = new fabric.Line([0, 0, 3000, 0], {
+                    stroke: light.entity.stroke,
+                    strokeWidth: 1,
+                    selectable: false,
+                    hasControls: false,
+                    hasBorders: false,
+                    hasRotatingPoint: false,
+                    centeredRotation: false,
+                    originX: 'left',
+                    originY: 'top',
+                    left: closestIntersection.x,
+                    top: closestIntersection.y
+                });
+
+                newBeamSegment.setAngle(newAngle + light.getLastSegment().getAngle());
+                newBeamSegment.setCoords();
+
+                var removedSegment = light.segments.pop();
+                canvas.remove(removedSegment);
+
+                var shortenLastSegment = new fabric.Line([0, 0, distance(removedSegment.left, removedSegment.top, closestIntersection.x, closestIntersection.y), 0], {
+                    stroke: removedSegment.stroke,
+                    strokeWidth: 1,
+                    selectable: false,
+                    hasControls: false,
+                    hasBorders: false,
+                    hasRotatingPoint: false,
+                    centeredRotation: false,
+                    originX: 'left',
+                    originY: 'top',
+                    left: removedSegment.left,
+                    top: removedSegment.top
+                });
+
+                shortenLastSegment.setAngle(removedSegment.getAngle());
+
+                light.segments.push(shortenLastSegment, newBeamSegment);
+            }
+            // Draw all segments
+            light.segments.forEach(function (segment) {
+                canvas.add(segment);
+            });
+        });
+        canvas.add(this.light.entity);
+        canvas.sendToBack(this.light.entity);
+        canvas.renderAll();
     };
 
-
-    this.findIntersectionWithLine = function (line) {
-        var result = checkLineIntersection(this.getLastSegment().aCoords.tl.x, this.getLastSegment().aCoords.tl.y, this.getLastSegment().aCoords.tr.x, this.getLastSegment().aCoords.tr.y, line.x1, line.y1, line.x2, line.y2);
-        if (result && result.onLine1 && result.onLine2) {
-            return result;
+    this.createSpectrum = function () {
+        if (this.light.entity.wavelength == 0) {
+            // Visible(white) light
+            var min = 400;
+            var max = 650; //650
+            var step = 20;
+            for (var i = min; i <= max; i += step) {
+                this.spectrum.push(new Light(i));
+            }
         } else {
-            return null;
+            // Light with just one wavelength
+            this.spectrum.push(new Light(this.light.entity.wavelength)); // Make a copy
         }
     };
 
-    this.clearIntersections = function () {
-        this.intersections.forEach(function (intersection) {
-            canvas.remove(intersection);
-        });
-    };
+    this.createSpectrum();
+}
+
+function Light(wavelength) {
+    var self = this;
+
+    this.entity = new fabric.Line([0, 0, 3000, 0], {
+        wavelength: wavelength || 0,
+        stroke: (wavelength && wavelength != 0 ? wavelengthToColor(wavelength) : "white"),
+        strokeWidth: 1,
+        selectable: false,
+        hasControls: false,
+        hasBorders: false,
+        hasRotatingPoint: false,
+        centeredRotation: false,
+        originX: 'left',
+        originY: 'top',
+        top: 50
+    });
+
+    this.segments = [];
+
+    this.intersections = [];
 
     this.clearSegments = function () {
         this.segments.forEach(function (segment) {
@@ -213,64 +257,77 @@ function LaserBeam() {
         this.segments = [];
     };
 
-    this.findClosestIntersectionWithPrism = function (prism) {
-        var possibleIntersection1 = this.findIntersectionWithLine(prism.getFirstEdge());
-        if (possibleIntersection1 && possibleIntersection1.x == Math.round(this.getLastSegment().aCoords.tl.x) && possibleIntersection1.y == Math.round(this.getLastSegment().aCoords.tl.y)) {
-            possibleIntersection1 = null;
-        } else if (possibleIntersection1 && isPointInsideCircle(possibleIntersection1.x, possibleIntersection1.y, this.getLastSegment().aCoords.tl.x, this.getLastSegment().aCoords.tl.y, 5)) {
-            possibleIntersection1 = null;
-        }
-        var possibleIntersection2 = this.findIntersectionWithLine(prism.getSecondEdge());
-        if (possibleIntersection2 && possibleIntersection2.x == Math.round(this.getLastSegment().aCoords.tl.x) && possibleIntersection2.y == Math.round(this.getLastSegment().aCoords.tl.y)) {
-            possibleIntersection2 = null;
-        } else if (possibleIntersection2 && isPointInsideCircle(possibleIntersection2.x, possibleIntersection2.y, this.getLastSegment().aCoords.tl.x, this.getLastSegment().aCoords.tl.y, 5)) {
-            possibleIntersection2 = null;
-        }
-        var possibleIntersection3 = this.findIntersectionWithLine(prism.getThirdEdge());
-        if (possibleIntersection3 && possibleIntersection3.x == Math.round(this.getLastSegment().aCoords.tl.x) && possibleIntersection3.y == Math.round(this.getLastSegment().aCoords.tl.y)) {
-            possibleIntersection3 = null;
-        } else if (possibleIntersection3 && isPointInsideCircle(possibleIntersection3.x, possibleIntersection3.y, this.getLastSegment().aCoords.tl.x, this.getLastSegment().aCoords.tl.y, 5)) {
-            possibleIntersection3 = null;
-        }
-
-        var closestIntersection = possibleIntersection1 ? possibleIntersection1 : (possibleIntersection2 ? possibleIntersection2 : (possibleIntersection3 ? possibleIntersection3 : null));
-        if (closestIntersection == null)
-            return null;
-
-        if (possibleIntersection2 && (distance(this.getLastSegment().aCoords.tl.x, this.getLastSegment().aCoords.tl.y, possibleIntersection2.x, possibleIntersection2.y) < distance(this.getLastSegment().aCoords.tl.x, this.getLastSegment().aCoords.tl.y, closestIntersection.x, closestIntersection.y)))
-            closestIntersection = possibleIntersection2;
-        if (possibleIntersection3 && (distance(this.getLastSegment().aCoords.tl.x, this.getLastSegment().aCoords.tl.y, possibleIntersection3.x, possibleIntersection3.y) < distance(this.getLastSegment().aCoords.tl.x, this.getLastSegment().aCoords.tl.y, closestIntersection.x, closestIntersection.y)))
-            closestIntersection = possibleIntersection3;
-
-        return closestIntersection;
-    };
-
-    this.findClosestIntersectionWithPrisms = function () {
-        var closestIntersectionOfAll = null;
-        prisms.forEach(function (prism) {
-            if (self.getLastSegment().intersectsWithObject(prism.entity)) {
-                var closestIntersectionWithOnePrism = self.findClosestIntersectionWithPrism(prism);
-                // console.log(closestIntersectionWithOnePrism);
-                if (closestIntersectionWithOnePrism) {
-                    if (closestIntersectionOfAll) {
-                        if (distance(self.getLastSegment().aCoords.tl.x, self.getLastSegment().aCoords.tl.y, closestIntersectionWithOnePrism.x, closestIntersectionWithOnePrism.y) < distance(self.getLastSegment().aCoords.tl.x, self.getLastSegment().aCoords.tl.y, closestIntersectionOfAll.x, closestIntersectionOfAll.y)) {
-                            closestIntersectionOfAll = closestIntersectionWithOnePrism;
-                        }
-                    } else {
-                        closestIntersectionOfAll = closestIntersectionWithOnePrism
-                    }
-                }
-            }
+    this.clearIntersections = function () {
+        this.intersections.forEach(function (intersection) {
+            canvas.remove(intersection);
         });
-        return closestIntersectionOfAll;
+        this.intersections = [];
     };
 
     this.getLastSegment = function () {
         return this.segments[this.segments.length - 1];
     };
 
-    // Init segments array
-    this.segments.push(this.entity);
+    this.findClosestIntersectionWithPrism = function (prism) {
+        var lastSegmentCoords = this.getLastSegment().getCoords();
+        var intersection = fabric.Intersection.intersectLinePolygon(lastSegmentCoords[0], lastSegmentCoords[1], prism.getPointsCoords());
+        if (intersection.status === "Intersection") {
+            var filteredIntersections = this.removePointsNearbyLastIntersection(intersection.points);
+            if (filteredIntersections.length == 0)
+                return null;
+            return this.pickClosestPointTo(new fabric.Point(lastSegmentCoords[0].x, lastSegmentCoords[0].y), filteredIntersections);
+        }
+        else {
+            return null;
+        }
+    };
+
+    this.removePointsNearbyLastIntersection = function (array) {
+        if (this.intersections.length == 0)
+            return array;
+
+        var newArray = [];
+        array.forEach(function (testedPoint) {
+            var lastIntersection = self.intersections[self.intersections.length - 1];
+            if (!isPointInsideCircle(testedPoint.x, testedPoint.y, lastIntersection.left, lastIntersection.top, lastIntersection.radius)) {
+                newArray.push(testedPoint);
+            }
+        });
+        return newArray;
+    };
+
+    this.pickClosestPointTo = function (point, array) {
+        var closest = array[0];
+        var distance = point.distanceFrom(closest);
+        array.forEach(function (secondPoint) {
+            var secondDistance;
+            if ((secondDistance = point.distanceFrom(secondPoint)) < distance) {
+                closest = secondPoint;
+                distance = secondDistance;
+            }
+        });
+        return {
+            point: closest,
+            distance: distance
+        };
+    };
+
+    this.findClosestIntersectionWithPrisms = function () {
+        var closestIntersectionOfAll = null;
+        prisms.forEach(function (prism) {
+            var closestIntersectionWithOnePrism = self.findClosestIntersectionWithPrism(prism);
+            if (closestIntersectionWithOnePrism) {
+                if (closestIntersectionOfAll) {
+                    if (closestIntersectionWithOnePrism.distance < closestIntersectionOfAll.distance) {
+                        closestIntersectionOfAll = closestIntersectionWithOnePrism;
+                    }
+                } else {
+                    closestIntersectionOfAll = closestIntersectionWithOnePrism
+                }
+            }
+        });
+        return closestIntersectionOfAll ? closestIntersectionOfAll.point : null;
+    };
 }
 
 function Prism(x, y) {
@@ -289,88 +346,21 @@ function Prism(x, y) {
 
     this.entity.setControlsVisibility(onlyRotationEnabledSettings);
 
-    this.entity.on("moving", lasers.checkIntersections);
-    this.entity.on("rotating", lasers.checkIntersections);
-    this.entity.on("modified", lasers.checkIntersections);
+    this.entity.on("moving", lasers.redraw);
+    this.entity.on("rotating", lasers.redraw);
+    this.entity.on("modified", lasers.redraw);
 
     this.setCoords = function () {
         this.entity.setCoords();
     };
 
-    this.getFirstEdge = function () {
-        return {
-            'x1': this.entity.oCoords.mt.x,
-            'y1': this.entity.oCoords.mt.y,
-            'x2': this.entity.aCoords.bl.x,
-            'y2': this.entity.aCoords.bl.y
-        }
-    };
-
-    this.getSecondEdge = function () {
-        return {
-            'x1': this.entity.oCoords.mt.x,
-            'y1': this.entity.oCoords.mt.y,
-            'x2': this.entity.aCoords.br.x,
-            'y2': this.entity.aCoords.br.y
-        }
-    };
-
-    this.getThirdEdge = function () {
-        return {
-            'x1': this.entity.oCoords.br.x,
-            'y1': this.entity.oCoords.br.y,
-            'x2': this.entity.aCoords.bl.x,
-            'y2': this.entity.aCoords.bl.y
-        }
+    this.getPointsCoords = function () {
+        return [
+            new fabric.Point(this.entity.oCoords.br.x, this.entity.oCoords.br.y),
+            new fabric.Point(this.entity.oCoords.bl.x, this.entity.oCoords.bl.y),
+            new fabric.Point(this.entity.oCoords.mt.x, this.entity.oCoords.mt.y)
+        ]
     }
-}
-
-// http://jsfiddle.net/justin_c_rounds/Gd2S2/light/
-function checkLineIntersection(line1StartX, line1StartY, line1EndX, line1EndY, line2StartX, line2StartY, line2EndX, line2EndY) {
-    // if the lines intersect, the result contains the x and y of the intersection (treating the lines as infinite) and booleans for whether line segment 1 or line segment 2 contain the point
-    var denominator, a, b, numerator1, numerator2, result = {
-        x: null,
-        y: null,
-        onLine1: false,
-        onLine2: false
-    };
-    denominator = ((line2EndY - line2StartY) * (line1EndX - line1StartX)) - ((line2EndX - line2StartX) * (line1EndY - line1StartY));
-    if (denominator == 0) {
-        return result;
-    }
-    a = line1StartY - line2StartY;
-    b = line1StartX - line2StartX;
-    numerator1 = ((line2EndX - line2StartX) * a) - ((line2EndY - line2StartY) * b);
-    numerator2 = ((line1EndX - line1StartX) * a) - ((line1EndY - line1StartY) * b);
-    a = numerator1 / denominator;
-    b = numerator2 / denominator;
-
-    // if we cast these lines infinitely in both directions, they intersect here:
-    result.x = line1StartX + (a * (line1EndX - line1StartX));
-    result.y = line1StartY + (a * (line1EndY - line1StartY));
-    /*
-     // it is worth noting that this should be the same as:
-     x = line2StartX + (b * (line2EndX - line2StartX));
-     y = line2StartX + (b * (line2EndY - line2StartY));
-     */
-    // if line1 is a segment and line2 is infinite, they intersect if:
-    if (a > 0 && a < 1) {
-        result.onLine1 = true;
-    }
-    // if line2 is a segment and line1 is infinite, they intersect if:
-    if (b > 0 && b < 1) {
-        result.onLine2 = true;
-    }
-    // if line1 and line2 are segments, they intersect if both of the above are true
-    // return result;
-
-    if (result.onLine1 && result.onLine2) {
-        result.x = Math.round(result.x);
-        result.y = Math.round(result.y);
-        return result;
-    }
-    else
-        return null;
 }
 
 // http://stackoverflow.com/questions/28986872/finding-distance-between-two-points-on-image-even-when-image-is-scaled
@@ -388,14 +378,19 @@ function drawCircle(x, y, color) {
         top: y,
         originX: 'center',
         originY: 'center',
-        selectable: false
+        selectable: false,
+        hasControls: false,
+        hasBorders: false,
+        hasRotatingPoint: false
     });
 
-    canvas.add(newCircle);
+    //TODO make this an option
+    // canvas.add(newCircle);
 
     return newCircle;
 }
 
+//TODO just for testing
 function getMouseCoords(event) {
     var pointer = canvas.getPointer(event.e);
     var posY = pointer.y;
@@ -408,7 +403,6 @@ function isPointInsideCircle(x0, y0, x1, y1, r) {
 }
 
 function resizeCanvas() {
-    "use strict";
     if ($(window).width() < 800) {
         canvas.setWidth(800);
     } else {
@@ -420,12 +414,10 @@ function resizeCanvas() {
     } else {
         canvas.setHeight($(window).height());
     }
-
 }
 
 // http://scienceprimer.com/javascript-code-convert-light-wavelength-color
 function wavelengthToColor(wavelength) {
-    "use strict";
     var R,
         G,
         B,
@@ -463,7 +455,7 @@ function wavelengthToColor(wavelength) {
         B = 0;
     }
 
-    // intensty is lower at the edges of the visible spectrum
+    // intensity is lower at the edges of the visible spectrum
     if (wavelength > 780 || wavelength < 380) {
         alpha = 0;
     } else if (wavelength > 700) {
@@ -477,17 +469,12 @@ function wavelengthToColor(wavelength) {
     return "rgba(" + (R * 100) + "%," + (G * 100) + "%," + (B * 100) + "%, " + alpha + ")";
 }
 
-
 // ----------------------------------------------------------------------------
 //                                   Usage
 // ----------------------------------------------------------------------------
 
-var canvas = new fabric.Canvas('c');
-
-canvas.backgroundColor = "#000";
-// canvas.setWidth(1000);
-// canvas.setHeight(800);
-canvas.preserveObjectStacking = true;
+//TODO put this maybe in one class?? and make init function and functions to add lasers and prisms
+var canvas = new fabric.Canvas('c', {renderOnAddRemove: false, skipTargetFind: false, backgroundColor: "#000", preserveObjectStacking: true});
 canvas.removeAllCircles = function () {
     var objects = canvas.getObjects();
     var numberOfObjects = objects.length;
@@ -515,9 +502,9 @@ var lasers = [];
 
 var prisms = [];
 
-lasers.checkIntersections = function (e) {
+lasers.redraw = function (e) {
     lasers.forEach(function (laser) {
-        laser.beam.checkIntersections(e);
+        laser.beam.redraw(e);
     });
 };
 
@@ -527,11 +514,11 @@ prisms.setCoords = function () {
     })
 };
 var laser1 = new Laser();
-var laser2 = new Laser(200, 500);
+// var laser2 = new Laser(200, 500);
 var prism1 = new Prism();
 var prism2 = new Prism(300, 400);
 
-lasers.push(laser1, laser2);
+lasers.push(laser1);
 prisms.push(prism1, prism2);
 
 lasers.forEach(function (laser) {
@@ -547,57 +534,8 @@ canvas.on('mouse:down', function (e) {
     getMouseCoords(e);
 });
 
-/*
-canvas.add(
-    new fabric.Line([10, 10, 3000, 10], {
-        strokeWidth: 1,
-        stroke: wavelengthToColor(650),
-        angle: 0.6
-    }),
-    new fabric.Line([10, 10, 3000, 10], {
-        strokeWidth: 1,
-        stroke: wavelengthToColor(590),
-        angle: 0.5
-    }),
-    new fabric.Line([10, 10, 3000, 10], {
-        strokeWidth: 1,
-        stroke: wavelengthToColor(570),
-        angle: 0.4
-    }),
-    new fabric.Line([10, 10, 3000, 10], {
-        strokeWidth: 1,
-        stroke: wavelengthToColor(510),
-        angle: 0.3
-    }),
-    new fabric.Line([10, 10, 3000, 10], {
-        strokeWidth: 1,
-        stroke: wavelengthToColor(475),
-        angle: 0.2
-    }),
-    new fabric.Line([10, 10, 3000, 10], {
-        strokeWidth: 1,
-        stroke: wavelengthToColor(445),
-        angle: 0.1
-    }),
-    new fabric.Line([10, 10, 3000, 10], {
-        strokeWidth: 1,
-        stroke: wavelengthToColor(440)
-    })
-);
-*/
-
 resizeCanvas();
 
 window.addEventListener("resize", function () {
     resizeCanvas();
 });
-
-//listener for refraction slider change
-$("#range_slider").on("input change", function () {
-    refractionChange(this.value);
-});
-
-function refractionChange(value) {
-    $("#index_value").text(value);
-    console.log("Refraction change " + value);
-}
