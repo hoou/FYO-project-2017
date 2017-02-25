@@ -1,6 +1,264 @@
-// ----------------------------------------------------------------------------
-//                                   Functions
-// ----------------------------------------------------------------------------
+function App(canvasSelector) {
+    var self = this;
+
+    this.canvas = null;
+
+    this.lasers = [];
+    this.prisms = [];
+
+    this.init = function () {
+        this.canvas = new fabric.Canvas(canvasSelector, {
+            renderOnAddRemove: false,
+            skipTargetFind: false,
+            backgroundColor: "#000",
+            preserveObjectStacking: true
+        });
+
+        //TODO just for testing
+        this.canvas.on('mouse:down', function (e) {
+            self.getMouseCoords(e);
+        });
+
+        this.addLaser();
+        this.addPrism();
+
+        this.resizeCanvas();
+    };
+
+    this.addLaser = function () {
+        var newLaser = new Laser();
+
+        newLaser.entity.on("mousedown", function (e) {
+            var innerTarget = newLaser.entity._searchPossibleTargets(e.e);
+            if (innerTarget == newLaser.button) {
+                newLaser.buttonToggle();
+                self.redraw();
+            }
+        });
+
+        newLaser.entity.on("moving", function () {
+            if (newLaser.beam.getVisible()) {
+                newLaser.entity.setCoords();
+                newLaser.beam.move(newLaser.entity.left, newLaser.entity.top);
+                self.redraw();
+            }
+        });
+
+        newLaser.entity.on("rotating", function () {
+            newLaser.beam.light.entity.setAngle(newLaser.entity.get("angle"));
+            self.redraw();
+        });
+
+        this.lasers.push(newLaser);
+        this.canvas.add(newLaser.entity);
+    };
+
+    this.addPrism = function () {
+        var newPrism = new Prism();
+        newPrism.entity.on("moving", self.redraw);
+        newPrism.entity.on("rotating", self.redraw);
+        newPrism.entity.on("modified", self.redraw);
+        this.prisms.push(newPrism);
+        this.canvas.add(newPrism.entity);
+        this.canvas.sendToBack(newPrism.entity);
+        this.redraw();
+    };
+
+    this.findClosestIntersectionBetweenLightAndPrisms = function (light) {
+        var closestIntersectionOfAll = null;
+        this.prisms.forEach(function (prism) {
+            var closestIntersectionWithOnePrism = light.findClosestIntersectionWithPrism(prism);
+            if (closestIntersectionWithOnePrism) {
+                if (closestIntersectionOfAll) {
+                    if (closestIntersectionWithOnePrism.distance < closestIntersectionOfAll.distance) {
+                        closestIntersectionOfAll = closestIntersectionWithOnePrism;
+                    }
+                } else {
+                    closestIntersectionOfAll = closestIntersectionWithOnePrism
+                }
+            }
+        });
+        return closestIntersectionOfAll ? closestIntersectionOfAll.point : null;
+    };
+
+    this.removeIntersectionsAndSegments = function () {
+        this.lasers.forEach(function (laser) {
+            laser.beam.light.intersections.forEach(function (intersection) {
+                self.canvas.remove(intersection);
+            });
+            laser.beam.light.intersections = [];
+
+            laser.beam.light.segments.forEach(function (segment) {
+                self.canvas.remove(segment);
+            });
+            laser.beam.light.segments = [];
+
+            laser.beam.spectrum.forEach(function (light) {
+                light.intersections.forEach(function (intersection) {
+                    self.canvas.remove(intersection);
+                });
+                light.intersections = [];
+
+                light.segments.forEach(function (segment) {
+                    self.canvas.remove(segment);
+                });
+                light.segments = [];
+            })
+        })
+    };
+
+    this.drawCircle = function (x, y, color) {
+        var newCircle = new fabric.Circle({
+            radius: 3,
+            fill: color || 'blue',
+            left: x,
+            top: y,
+            originX: 'center',
+            originY: 'center',
+            selectable: false,
+            hasControls: false,
+            hasBorders: false,
+            hasRotatingPoint: false
+        });
+
+        //TODO make this an option
+        // canvas.add(newCircle);
+
+        return newCircle;
+    };
+
+    this.redraw = function () {
+        self.removeIntersectionsAndSegments();
+        self.lasers.forEach(function (laser) {
+            laser.beam.light.entity.setWidth(3000);
+            laser.beam.light.segments.push(laser.beam.light.entity);
+
+            if (!laser.beam.getVisible()) {
+                self.canvas.renderAll();
+                return;
+            }
+
+            var closestIntersection;
+
+            self.prisms.forEach(function (prism) {
+                prism.setCoords();
+            });
+            laser.beam.light.entity.setCoords();
+
+            if (!(closestIntersection = self.findClosestIntersectionBetweenLightAndPrisms(laser.beam.light))) {
+                self.canvas.add(laser.beam.light.entity);
+                self.canvas.sendToBack(laser.beam.light.entity);
+                self.canvas.renderAll();
+                return;
+            }
+
+            laser.beam.light.entity.setWidth(laser.beam.light.entity.getCoords()[0].distanceFrom(closestIntersection));
+
+            var firstIntersection = closestIntersection;
+
+            laser.beam.spectrum.forEach(function (light) {
+                // How much should new beam segment rotate
+                var newAngle = light.entity.wavelength / 100;
+
+                light.entity.setLeft(firstIntersection.x);
+                light.entity.setTop(firstIntersection.y);
+                light.entity.setAngle(laser.beam.light.entity.get("angle") + newAngle);
+                light.entity.setCoords();
+
+                // light.clearIntersections();
+                var firstIntersectionDrawn = self.drawCircle(firstIntersection.x, firstIntersection.y, 'red');
+                light.intersections.push(firstIntersectionDrawn);
+
+                // light.clearSegments();
+                light.segments.push(light.entity);
+
+                self.prisms.forEach(function (prism) {
+                    prism.setCoords();
+                });
+                light.entity.setCoords();
+
+                while (closestIntersection = self.findClosestIntersectionBetweenLightAndPrisms(light)) {
+                    var circleDrawn = self.drawCircle(closestIntersection.x, closestIntersection.y, 'red');
+                    light.intersections.push(circleDrawn);
+
+                    var newBeamSegment = new fabric.Line([0, 0, 3000, 0], {
+                        stroke: light.entity.stroke,
+                        strokeWidth: 1,
+                        selectable: false,
+                        hasControls: false,
+                        hasBorders: false,
+                        hasRotatingPoint: false,
+                        centeredRotation: false,
+                        originX: 'left',
+                        originY: 'top',
+                        left: closestIntersection.x,
+                        top: closestIntersection.y
+                    });
+
+                    newBeamSegment.setAngle(newAngle + light.getLastSegment().getAngle());
+                    newBeamSegment.setCoords();
+
+                    var removedSegment = light.segments.pop();
+                    self.canvas.remove(removedSegment);
+
+                    var shortenLastSegment = new fabric.Line([0, 0, closestIntersection.distanceFrom(new fabric.Point(removedSegment.left, removedSegment.top)), 0], {
+                        stroke: removedSegment.stroke,
+                        strokeWidth: 1,
+                        selectable: false,
+                        hasControls: false,
+                        hasBorders: false,
+                        hasRotatingPoint: false,
+                        centeredRotation: false,
+                        originX: 'left',
+                        originY: 'top',
+                        left: removedSegment.left,
+                        top: removedSegment.top
+                    });
+
+                    shortenLastSegment.setAngle(removedSegment.getAngle());
+
+                    light.segments.push(shortenLastSegment, newBeamSegment);
+                }
+                // Draw all segments
+                light.segments.forEach(function (segment) {
+                    self.canvas.add(segment);
+                });
+            });
+            self.canvas.add(laser.beam.light.entity);
+            self.canvas.sendToBack(laser.beam.light.entity);
+        });
+        self.canvas.renderAll();
+    };
+
+    this.resizeCanvas = function () {
+        if ($(window).width() < 800) {
+            this.canvas.setWidth(800);
+        } else {
+            this.canvas.setWidth($(window).width());
+        }
+
+        if ($(window).height() < 600) {
+            this.canvas.setHeight(600);
+        } else {
+            this.canvas.setHeight($(window).height());
+        }
+    };
+
+    window.addEventListener("resize", function () {
+        self.resizeCanvas();
+    });
+
+    //TODO just for testing
+    this.getMouseCoords = function (event) {
+        var pointer = this.canvas.getPointer(event.e);
+        var posY = pointer.y;
+        var posX = pointer.x;
+        console.log(posX + ", " + posY);    // Log to console
+    };
+
+    // On construction call init method
+    this.init();
+}
 
 function Laser(x, y) {
     var self = this;
@@ -36,17 +294,16 @@ function Laser(x, y) {
         this.beam.toggleVisible();
         self.entity.setCoords();
         self.beam.move(self.entity.left, self.entity.top);
-        this.beam.redraw();
     };
 
     // http://stackoverflow.com/questions/34047094/fabricjs-catch-click-on-object-inside-group
     this.entity._searchPossibleTargets = function (e) {
-        var pointer = canvas.getPointer(e, true);
-        var i = canvas._objects.length,
-            normalizedPointer = canvas._normalizePointer(this, pointer);
+        var pointer = this.canvas.getPointer(e, true);
+        var i = this._objects.length,
+            normalizedPointer = this.canvas._normalizePointer(this, pointer);
 
         while (i--) {
-            if (canvas._checkTarget(normalizedPointer, this._objects[i])) {
+            if (this.canvas._checkTarget(normalizedPointer, this._objects[i])) {
                 return this._objects[i];
             }
         }
@@ -54,33 +311,19 @@ function Laser(x, y) {
     };
 
     // Disable all controls besides rotation
-    this.entity.setControlsVisibility(onlyRotationEnabledSettings);
-
-    this.entity.on("mousedown", function (e) {
-        var innerTarget = this._searchPossibleTargets(e.e);
-
-        if (innerTarget == self.button) {
-            self.buttonToggle();
-        }
-    });
-
-    this.entity.on("moving", function (e) {
-        if (self.beam.getVisible()) {
-            self.entity.setCoords();
-            self.beam.move(self.entity.left, self.entity.top);
-            self.beam.redraw();
-        }
-    });
-
-    this.entity.on("rotating", function (e) {
-        self.beam.light.entity.setAngle(self.entity.get("angle"));
-        self.beam.redraw();
+    this.entity.setControlsVisibility({
+        mt: false,
+        mb: false,
+        ml: false,
+        mr: false,
+        bl: false,
+        br: false,
+        tl: false,
+        tr: false
     });
 }
 
 function LaserBeam(wavelength) {
-    var self = this;
-
     var visible = false;
 
     this.spectrum = [];
@@ -103,112 +346,6 @@ function LaserBeam(wavelength) {
             light.entity.visible = visible;
         });
         this.light.entity.visible = visible;
-    };
-
-    this.redraw = function () {
-        this.light.clearIntersections();
-        this.light.clearSegments();
-        this.light.entity.setWidth(3000);
-        this.light.segments.push(this.light.entity);
-
-        if (!visible) {
-            this.spectrum.forEach(function (light) {
-                light.clearIntersections();
-                light.clearSegments();
-            });
-            canvas.renderAll();
-            return;
-        }
-
-        var closestIntersection;
-
-        prisms.setCoords();
-        this.light.entity.setCoords();
-
-        if (!(closestIntersection = this.light.findClosestIntersectionWithPrisms())) {
-            canvas.add(this.light.entity);
-            canvas.sendToBack(this.light.entity);
-            this.spectrum.forEach(function (light) {
-                light.clearIntersections();
-                light.clearSegments();
-            });
-            canvas.renderAll();
-            return;
-        }
-
-        this.light.entity.setWidth(this.light.entity.getCoords()[0].distanceFrom(closestIntersection));
-
-        var firstIntersection = closestIntersection;
-
-        this.spectrum.forEach(function (light) {
-            // How much should new beam segment rotate
-            var newAngle = light.entity.wavelength / 100;
-
-            light.entity.setLeft(firstIntersection.x);
-            light.entity.setTop(firstIntersection.y);
-            light.entity.setAngle(self.light.entity.get("angle") + newAngle);
-            light.entity.setCoords();
-
-            light.clearIntersections();
-            var firstIntersectionDrawn = drawCircle(firstIntersection.x, firstIntersection.y, 'red');
-            light.intersections.push(firstIntersectionDrawn);
-
-            light.clearSegments();
-            light.segments.push(light.entity);
-
-            prisms.setCoords();
-            light.entity.setCoords();
-
-            while (closestIntersection = light.findClosestIntersectionWithPrisms()) {
-                var circleDrawn = drawCircle(closestIntersection.x, closestIntersection.y, 'red');
-                light.intersections.push(circleDrawn);
-
-                var newBeamSegment = new fabric.Line([0, 0, 3000, 0], {
-                    stroke: light.entity.stroke,
-                    strokeWidth: 1,
-                    selectable: false,
-                    hasControls: false,
-                    hasBorders: false,
-                    hasRotatingPoint: false,
-                    centeredRotation: false,
-                    originX: 'left',
-                    originY: 'top',
-                    left: closestIntersection.x,
-                    top: closestIntersection.y
-                });
-
-                newBeamSegment.setAngle(newAngle + light.getLastSegment().getAngle());
-                newBeamSegment.setCoords();
-
-                var removedSegment = light.segments.pop();
-                canvas.remove(removedSegment);
-
-                var shortenLastSegment = new fabric.Line([0, 0, distance(removedSegment.left, removedSegment.top, closestIntersection.x, closestIntersection.y), 0], {
-                    stroke: removedSegment.stroke,
-                    strokeWidth: 1,
-                    selectable: false,
-                    hasControls: false,
-                    hasBorders: false,
-                    hasRotatingPoint: false,
-                    centeredRotation: false,
-                    originX: 'left',
-                    originY: 'top',
-                    left: removedSegment.left,
-                    top: removedSegment.top
-                });
-
-                shortenLastSegment.setAngle(removedSegment.getAngle());
-
-                light.segments.push(shortenLastSegment, newBeamSegment);
-            }
-            // Draw all segments
-            light.segments.forEach(function (segment) {
-                canvas.add(segment);
-            });
-        });
-        canvas.add(this.light.entity);
-        canvas.sendToBack(this.light.entity);
-        canvas.renderAll();
     };
 
     this.createSpectrum = function () {
@@ -234,7 +371,7 @@ function Light(wavelength) {
 
     this.entity = new fabric.Line([0, 0, 3000, 0], {
         wavelength: wavelength || 0,
-        stroke: (wavelength && wavelength != 0 ? wavelengthToColor(wavelength) : "white"),
+        stroke: (wavelength && wavelength != 0 ? self.wavelengthToColor(wavelength) : "white"),
         strokeWidth: 1,
         selectable: false,
         hasControls: false,
@@ -249,20 +386,6 @@ function Light(wavelength) {
     this.segments = [];
 
     this.intersections = [];
-
-    this.clearSegments = function () {
-        this.segments.forEach(function (segment) {
-            canvas.remove(segment);
-        });
-        this.segments = [];
-    };
-
-    this.clearIntersections = function () {
-        this.intersections.forEach(function (intersection) {
-            canvas.remove(intersection);
-        });
-        this.intersections = [];
-    };
 
     this.getLastSegment = function () {
         return this.segments[this.segments.length - 1];
@@ -289,7 +412,7 @@ function Light(wavelength) {
         var newArray = [];
         array.forEach(function (testedPoint) {
             var lastIntersection = self.intersections[self.intersections.length - 1];
-            if (!isPointInsideCircle(testedPoint.x, testedPoint.y, lastIntersection.left, lastIntersection.top, lastIntersection.radius)) {
+            if (!self.isPointInsideCircle(testedPoint, new fabric.Point(lastIntersection.left, lastIntersection.top), lastIntersection.radius)) {
                 newArray.push(testedPoint);
             }
         });
@@ -312,118 +435,17 @@ function Light(wavelength) {
         };
     };
 
-    this.findClosestIntersectionWithPrisms = function () {
-        var closestIntersectionOfAll = null;
-        prisms.forEach(function (prism) {
-            var closestIntersectionWithOnePrism = self.findClosestIntersectionWithPrism(prism);
-            if (closestIntersectionWithOnePrism) {
-                if (closestIntersectionOfAll) {
-                    if (closestIntersectionWithOnePrism.distance < closestIntersectionOfAll.distance) {
-                        closestIntersectionOfAll = closestIntersectionWithOnePrism;
-                    }
-                } else {
-                    closestIntersectionOfAll = closestIntersectionWithOnePrism
-                }
-            }
-        });
-        return closestIntersectionOfAll ? closestIntersectionOfAll.point : null;
+    this.isPointInsideCircle = function (point1, point2, r) {
+        return point1.distanceFrom(point2) < r;
     };
-}
-
-function Prism(x, y) {
-    this.entity = new fabric.Polyline([
-        {x: 100, y: 0},
-        {x: 200, y: 200},
-        {x: 0, y: 200},
-        {x: 100, y: 0}
-
-    ], {
-        left: x || 300,
-        top: y || 100,
-        stroke: 'white',
-        fill: 'rgba(0,0,0,0)'
-    });
-
-    this.entity.setControlsVisibility(onlyRotationEnabledSettings);
-
-    this.entity.on("moving", lasers.redraw);
-    this.entity.on("rotating", lasers.redraw);
-    this.entity.on("modified", lasers.redraw);
-
-    this.setCoords = function () {
-        this.entity.setCoords();
-    };
-
-    this.getPointsCoords = function () {
-        return [
-            new fabric.Point(this.entity.oCoords.br.x, this.entity.oCoords.br.y),
-            new fabric.Point(this.entity.oCoords.bl.x, this.entity.oCoords.bl.y),
-            new fabric.Point(this.entity.oCoords.mt.x, this.entity.oCoords.mt.y)
-        ]
-    }
-}
-
-// http://stackoverflow.com/questions/28986872/finding-distance-between-two-points-on-image-even-when-image-is-scaled
-function distance(x1, y1, x2, y2) {
-    var dx = x2 - x1;
-    var dy = y2 - y1;
-    return Math.sqrt(dx * dx + dy * dy);
-}
-
-function drawCircle(x, y, color) {
-    var newCircle = new fabric.Circle({
-        radius: 3,
-        fill: color || 'blue',
-        left: x,
-        top: y,
-        originX: 'center',
-        originY: 'center',
-        selectable: false,
-        hasControls: false,
-        hasBorders: false,
-        hasRotatingPoint: false
-    });
-
-    //TODO make this an option
-    // canvas.add(newCircle);
-
-    return newCircle;
-}
-
-//TODO just for testing
-function getMouseCoords(event) {
-    var pointer = canvas.getPointer(event.e);
-    var posY = pointer.y;
-    var posX = pointer.x;
-    console.log(posX + ", " + posY);    // Log to console
-}
-
-function isPointInsideCircle(x0, y0, x1, y1, r) {
-    return distance(x0, y0, x1, y1) < r;
-}
-
-function resizeCanvas() {
-    if ($(window).width() < 800) {
-        canvas.setWidth(800);
-    } else {
-        canvas.setWidth($(window).width());
-    }
-
-    if ($(window).height() < 600) {
-        canvas.setHeight(600);
-    } else {
-        canvas.setHeight($(window).height());
-    }
 }
 
 // http://scienceprimer.com/javascript-code-convert-light-wavelength-color
-function wavelengthToColor(wavelength) {
+Light.prototype.wavelengthToColor = function (wavelength) {
     var R,
         G,
         B,
-        alpha,
-        colorSpace,
-        gamma = 1;
+        alpha;
 
     if (wavelength >= 380 && wavelength < 440) {
         R = -1 * (wavelength - 440) / (440 - 380);
@@ -467,75 +489,42 @@ function wavelengthToColor(wavelength) {
     }
 
     return "rgba(" + (R * 100) + "%," + (G * 100) + "%," + (B * 100) + "%, " + alpha + ")";
-}
-
-// ----------------------------------------------------------------------------
-//                                   Usage
-// ----------------------------------------------------------------------------
-
-//TODO put this maybe in one class?? and make init function and functions to add lasers and prisms
-var canvas = new fabric.Canvas('c', {renderOnAddRemove: false, skipTargetFind: false, backgroundColor: "#000", preserveObjectStacking: true});
-canvas.removeAllCircles = function () {
-    var objects = canvas.getObjects();
-    var numberOfObjects = objects.length;
-    for (var i = 0; i < numberOfObjects; i++) {
-        if (objects[i].get('type') == 'daco') {
-            canvas.remove(objects[i]);
-            i--;
-            numberOfObjects--;
-        }
-    }
 };
 
-var onlyRotationEnabledSettings = {
-    mt: false,
-    mb: false,
-    ml: false,
-    mr: false,
-    bl: false,
-    br: false,
-    tl: false,
-    tr: false
-};
+function Prism(x, y) {
+    this.entity = new fabric.Polyline([
+        {x: 100, y: 0},
+        {x: 200, y: 200},
+        {x: 0, y: 200},
+        {x: 100, y: 0}
 
-var lasers = [];
-
-var prisms = [];
-
-lasers.redraw = function (e) {
-    lasers.forEach(function (laser) {
-        laser.beam.redraw(e);
+    ], {
+        left: x || 300,
+        top: y || 100,
+        stroke: 'white',
+        fill: 'rgba(0,0,0,0)'
     });
-};
 
-prisms.setCoords = function () {
-    prisms.forEach(function (prism) {
-        prism.setCoords();
-    })
-};
-var laser1 = new Laser();
-// var laser2 = new Laser(200, 500);
-var prism1 = new Prism();
-var prism2 = new Prism(300, 400);
+    this.entity.setControlsVisibility({
+        mt: false,
+        mb: false,
+        ml: false,
+        mr: false,
+        bl: false,
+        br: false,
+        tl: false,
+        tr: false
+    });
 
-lasers.push(laser1);
-prisms.push(prism1, prism2);
+    this.setCoords = function () {
+        this.entity.setCoords();
+    };
 
-lasers.forEach(function (laser) {
-    canvas.add(laser.entity);
-});
-
-prisms.forEach(function (prism) {
-    canvas.add(prism.entity);
-    canvas.sendToBack(prism.entity);
-});
-
-canvas.on('mouse:down', function (e) {
-    getMouseCoords(e);
-});
-
-resizeCanvas();
-
-window.addEventListener("resize", function () {
-    resizeCanvas();
-});
+    this.getPointsCoords = function () {
+        return [
+            new fabric.Point(this.entity.oCoords.br.x, this.entity.oCoords.br.y),
+            new fabric.Point(this.entity.oCoords.bl.x, this.entity.oCoords.bl.y),
+            new fabric.Point(this.entity.oCoords.mt.x, this.entity.oCoords.mt.y)
+        ]
+    }
+}

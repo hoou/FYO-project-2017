@@ -7,19 +7,21 @@
     <!-- css -->
     <link rel="stylesheet" href="css/style.css">
 
-    <!-- js libraries -->
+    <!-- js -->
     <script src="js/jquery-3.1.1.min.js"></script>
 
     <!-- TODO replace with minified versions -->
     <script src="js/fabric.js"></script>
     <script src="js/dat.gui.js"></script>
 
+    <script type="text/javascript" src="js/main.js"></script>
 </head>
 <body>
 
 <canvas id="c">Sorry, your browser doesn't support the &lt;canvas&gt; element.</canvas>
 
-<!-- js -->
-<script type="text/javascript" src="js/main.js"></script>
+<script>
+    new App('c');
+</script>
 </body>
 </html>
