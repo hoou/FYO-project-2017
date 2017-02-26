@@ -154,7 +154,7 @@ function App(canvasSelector) {
     this.drawCircle = function (x, y, color) {
         var newCircle = new fabric.Circle({
             radius: 3,
-            fill: color || 'blue',
+            fill: color || 'yellow',
             left: x,
             top: y,
             originX: 'center',
@@ -180,24 +180,20 @@ function App(canvasSelector) {
         if (this.showIntersections) {
             if (!this.drawCircle.drawn) {
                 this.lasers.forEach(function (laser) {
-                    laser.beam.light.intersections.forEach(function (intersection) {
-                        self.canvas.add(intersection);
-                    });
                     laser.beam.spectrum.forEach(function (light) {
                         light.intersections.forEach(function (intersection) {
                             self.canvas.add(intersection);
+                            self.canvas.bringToFront(intersection);
                         })
                     })
                 });
                 this.drawCircle.drawn = true;
             } else {
                 this.lasers.forEach(function (laser) {
-                    laser.beam.light.intersections.forEach(function (intersection) {
-                        intersection.visible = true;
-                    });
                     laser.beam.spectrum.forEach(function (light) {
                         light.intersections.forEach(function (intersection) {
                             intersection.visible = true;
+                            self.canvas.bringToFront(intersection);
                         })
                     })
                 })
@@ -206,10 +202,12 @@ function App(canvasSelector) {
             this.lasers.forEach(function (laser) {
                 laser.beam.light.intersections.forEach(function (intersection) {
                     intersection.visible = false;
+                    self.canvas.bringToFront(intersection);
                 });
                 laser.beam.spectrum.forEach(function (light) {
                     light.intersections.forEach(function (intersection) {
                         intersection.visible = false;
+                        self.canvas.bringToFront(intersection);
                     })
                 })
             })
@@ -257,7 +255,7 @@ function App(canvasSelector) {
                 light.entity.setCoords();
 
                 // light.clearIntersections();
-                var firstIntersectionDrawn = self.drawCircle(firstIntersection.x, firstIntersection.y, 'red');
+                var firstIntersectionDrawn = self.drawCircle(firstIntersection.x, firstIntersection.y);
                 light.intersections.push(firstIntersectionDrawn);
 
                 // light.clearSegments();
@@ -269,7 +267,7 @@ function App(canvasSelector) {
                 light.entity.setCoords();
 
                 while (closestIntersection = self.findClosestIntersectionBetweenLightAndPrisms(light)) {
-                    var circleDrawn = self.drawCircle(closestIntersection.x, closestIntersection.y, 'red');
+                    var circleDrawn = self.drawCircle(closestIntersection.x, closestIntersection.y);
                     light.intersections.push(circleDrawn);
 
                     var newBeamSegment = new fabric.Line([0, 0, 3000, 0], {
@@ -314,6 +312,12 @@ function App(canvasSelector) {
                 light.segments.forEach(function (segment) {
                     self.canvas.add(segment);
                 });
+
+                if (self.showIntersections) {
+                    light.intersections.forEach(function (intersection) {
+                        self.canvas.bringToFront(intersection);
+                    });
+                }
             });
             self.canvas.add(laser.beam.light.entity);
             self.canvas.sendToBack(laser.beam.light.entity);
