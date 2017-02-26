@@ -274,7 +274,7 @@ function App(canvasSelector) {
 
                     var newBeamSegment = new fabric.Line([0, 0, 3000, 0], {
                         stroke: light.entity.stroke,
-                        strokeWidth: 1,
+                        strokeWidth: 2,
                         selectable: false,
                         hasControls: false,
                         hasBorders: false,
@@ -294,7 +294,7 @@ function App(canvasSelector) {
 
                     var shortenLastSegment = new fabric.Line([0, 0, closestIntersection.distanceFrom(new fabric.Point(removedSegment.left, removedSegment.top)), 0], {
                         stroke: removedSegment.stroke,
-                        strokeWidth: 1,
+                        strokeWidth: 2,
                         selectable: false,
                         hasControls: false,
                         hasBorders: false,
@@ -526,7 +526,7 @@ function Light(wavelength) {
 
     this.entity = new fabric.Line([0, 0, 3000, 0], {
         stroke: (wavelength ? self.wavelengthToColor(wavelength) : "white"),
-        strokeWidth: 1,
+        strokeWidth: 2,
         selectable: false,
         hasControls: false,
         hasBorders: false,
