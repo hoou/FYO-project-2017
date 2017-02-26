@@ -503,7 +503,7 @@ function LaserBeam(wavelength) {
     this.createSpectrum = function () {
         if (this.light.visibleLight) {
             var min = 400;
-            var max = 650; //650
+            var max = 700; //700
             var step = 20;
             for (var i = min; i <= max; i += step) {
                 this.spectrum.push(new Light(i));
@@ -522,7 +522,7 @@ function Light(wavelength) {
 
     this.visibleLight = true;
 
-    this.wavelength = wavelength || 650;
+    this.wavelength = wavelength || 700;
 
     this.entity = new fabric.Line([0, 0, 3000, 0], {
         stroke: (wavelength ? self.wavelengthToColor(wavelength) : "white"),
@@ -747,7 +747,7 @@ function Gui(app) {
             app.redraw();
         });
 
-        controller = newFolder.add(laser.beam.light, 'wavelength', 400, 650);
+        controller = newFolder.add(laser.beam.light, 'wavelength', 400, 700);
         controller.onChange(function (value) {
             laser.colorLabel.setFill(laser.beam.light.wavelengthToColor(value));
             laser.beam.light.updateStroke();
