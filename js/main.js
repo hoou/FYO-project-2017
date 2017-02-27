@@ -9,10 +9,13 @@ function App(canvasSelector) {
     this.prisms = [];
 
     this.showIntersections = false;
-
     this.colorOfIntersections = "#ffff00";
-
     this.sizeOfIntersections = 3;
+
+    this.showNormalVectors = false;
+    this.colorOfNormalVectors = "#30ff76";
+    this.widthOfNormalVectors = 1;
+    this.lengthOfNormalVectors = 100;
 
     this.init = function () {
         this.canvas = new fabric.Canvas(canvasSelector, {
@@ -36,7 +39,7 @@ function App(canvasSelector) {
     };
 
     this.reset = function () {
-        this.destroyIntersectionsAndSegments();
+        this.destroyIntersectionsAndSegmentsAndNormals();
         this.lasers.forEach(function (laser) {
             self.canvas.remove(laser.entity);
         });
@@ -72,6 +75,48 @@ function App(canvasSelector) {
             laser.beam.spectrum.forEach(function (light) {
                 light.intersections.forEach(function (intersection) {
                     intersection.setRadius(self.sizeOfIntersections);
+                })
+            })
+        });
+        this.canvas.renderAll();
+    };
+
+    this.changeColorOfNormalVectors = function () {
+        this.lasers.forEach(function (laser) {
+            laser.beam.spectrum.forEach(function (light) {
+                laser.beam.light.normalVectors.forEach(function (normalVector) {
+                    normalVector.setStroke(self.colorOfNormalVectors);
+                });
+                light.normalVectors.forEach(function (normalVector) {
+                    normalVector.setStroke(self.colorOfNormalVectors);
+                })
+            })
+        });
+        this.canvas.renderAll();
+    };
+
+    this.changeWidthOfNormalVectors = function () {
+        this.lasers.forEach(function (laser) {
+            laser.beam.light.normalVectors.forEach(function (normalVector) {
+                normalVector.setStrokeWidth(self.widthOfNormalVectors);
+            });
+            laser.beam.spectrum.forEach(function (light) {
+                light.normalVectors.forEach(function (normalVector) {
+                    normalVector.setStrokeWidth(self.widthOfNormalVectors);
+                })
+            })
+        });
+        this.canvas.renderAll();
+    };
+
+    this.changeLengthOfNormalVectors = function () {
+        this.lasers.forEach(function (laser) {
+            laser.beam.light.normalVectors.forEach(function (normalVector) {
+                normalVector.setWidth(self.lengthOfNormalVectors);
+            });
+            laser.beam.spectrum.forEach(function (light) {
+                light.normalVectors.forEach(function (normalVector) {
+                    normalVector.setWidth(self.lengthOfNormalVectors);
                 })
             })
         });
@@ -142,7 +187,7 @@ function App(canvasSelector) {
         return closestIntersectionOfAll ? closestIntersectionOfAll.point : null;
     };
 
-    this.destroyIntersectionsAndSegments = function () {
+    this.destroyIntersectionsAndSegmentsAndNormals = function () {
         this.lasers.forEach(function (laser) {
             laser.beam.light.intersections.forEach(function (intersection) {
                 self.canvas.remove(intersection);
@@ -153,6 +198,11 @@ function App(canvasSelector) {
                 self.canvas.remove(segment);
             });
             laser.beam.light.segments = [];
+
+            laser.beam.light.normalVectors.forEach(function (normalVector) {
+                self.canvas.remove(normalVector);
+            });
+            laser.beam.light.normalVectors = [];
 
             self.removeSpectrum(laser);
         })
@@ -169,6 +219,11 @@ function App(canvasSelector) {
                 self.canvas.remove(segment);
             });
             light.segments = [];
+
+            light.normalVectors.forEach(function (normalVector) {
+                self.canvas.remove(normalVector);
+            });
+            light.normalVectors = [];
         });
     };
 
@@ -179,7 +234,7 @@ function App(canvasSelector) {
 
     this.makeIntersectionCircle = function (x, y) {
         var newCircle = new fabric.Circle({
-            radius: 3,
+            radius: self.sizeOfIntersections,
             fill: self.colorOfIntersections,
             left: x,
             top: y,
@@ -226,14 +281,38 @@ function App(canvasSelector) {
             }
         } else {
             this.lasers.forEach(function (laser) {
-                laser.beam.light.intersections.forEach(function (intersection) {
-                    intersection.visible = false;
-                    self.canvas.bringToFront(intersection);
-                });
                 laser.beam.spectrum.forEach(function (light) {
                     light.intersections.forEach(function (intersection) {
                         intersection.visible = false;
-                        self.canvas.bringToFront(intersection);
+                    })
+                })
+            })
+        }
+        this.canvas.renderAll();
+    };
+
+    this.toggleNormalVectorsVisibility = function () {
+        if (this.showNormalVectors) {
+            this.lasers.forEach(function (laser) {
+                laser.beam.light.normalVectors.forEach(function (normalVector) {
+                    normalVector.visible = true;
+                    self.canvas.sendToBack(normalVector);
+                });
+                laser.beam.spectrum.forEach(function (light) {
+                    light.normalVectors.forEach(function (normalVector) {
+                        normalVector.visible = true;
+                        self.canvas.sendToBack(normalVector);
+                    })
+                })
+            })
+        } else {
+            this.lasers.forEach(function (laser) {
+                laser.beam.light.normalVectors.forEach(function (normalVector) {
+                    normalVector.visible = false;
+                });
+                laser.beam.spectrum.forEach(function (light) {
+                    light.normalVectors.forEach(function (normalVector) {
+                        normalVector.visible = false;
                     })
                 })
             })
@@ -242,7 +321,7 @@ function App(canvasSelector) {
     };
 
     this.redraw = function () {
-        self.destroyIntersectionsAndSegments();
+        self.destroyIntersectionsAndSegmentsAndNormals();
         self.lasers.forEach(function (laser) {
             laser.beam.light.updateStroke();
             laser.beam.light.entity.setWidth(3000);
@@ -271,9 +350,15 @@ function App(canvasSelector) {
 
             var firstIntersection = closestIntersection;
 
+            // console.log(firstIntersection);
+
+            var firstNormalVector = self.makeNormalVector(firstIntersection, firstIntersection.line);
+            laser.beam.light.normalVectors.push(firstNormalVector);
+            self.canvas.add(firstNormalVector);
+
             laser.beam.spectrum.forEach(function (light) {
                 // How much should new beam segment rotate
-                var newAngle = light.wavelength / 100;
+                var newAngle = light.wavelength / 100; //TODO use firstNormalVector to compute new angle
 
                 light.entity.setLeft(firstIntersection.x);
                 light.entity.setTop(firstIntersection.y);
@@ -295,6 +380,9 @@ function App(canvasSelector) {
                 while (closestIntersection = self.findClosestIntersectionBetweenLightAndPrisms(light)) {
                     var circleDrawn = self.makeIntersectionCircle(closestIntersection.x, closestIntersection.y);
                     light.intersections.push(circleDrawn);
+                    var newNormalVector = self.makeNormalVector(closestIntersection, closestIntersection.line);
+                    light.normalVectors.push(newNormalVector);
+                    self.canvas.add(newNormalVector);
 
                     var newBeamSegment = new fabric.Line([0, 0, 3000, 0], {
                         stroke: light.entity.stroke,
@@ -310,6 +398,7 @@ function App(canvasSelector) {
                         top: closestIntersection.y
                     });
 
+                    //TODO use newNormalVector to compute new angle
                     newBeamSegment.setAngle(newAngle + light.getLastSegment().getAngle());
                     newBeamSegment.setCoords();
 
@@ -344,11 +433,66 @@ function App(canvasSelector) {
                         self.canvas.bringToFront(intersection);
                     });
                 }
+                if (self.showNormalVectors) {
+                    light.normalVectors.forEach(function (normalVector) {
+                        normalVector.visible = true;
+                        self.canvas.sendToBack(normalVector);
+                    });
+                }
             });
             self.canvas.add(laser.beam.light.entity);
             self.canvas.sendToBack(laser.beam.light.entity);
+            if (self.showNormalVectors) {
+                laser.beam.light.normalVectors.forEach(function (normalVector) {
+                    normalVector.visible = true;
+                    self.canvas.sendToBack(normalVector);
+                });
+            }
         });
         self.canvas.renderAll();
+    };
+
+    this.makeNormalVector = function (point, points) {
+        var angle = this.computeAngleBetweenTwoLines({x1: 0, y1: 0, x2: 1, y2: 0}, points);
+        return new fabric.Line([0, 0, self.lengthOfNormalVectors, 0], {
+            stroke: self.colorOfNormalVectors,
+            strokeWidth: self.widthOfNormalVectors,
+            strokeDashArray: [5, 5],
+            visible: false,
+            selectable: false,
+            hasControls: false,
+            hasBorders: false,
+            hasRotatingPoint: false,
+            centeredRotation: true,
+            originX: 'center',
+            originY: 'center',
+            left: point.x,
+            top: point.y,
+            angle: angle + 90
+        });
+    };
+
+    // http://stackoverflow.com/questions/28466589/fabricjs-how-i-can-make-an-angle-measurement
+    this.computeAngleBetweenTwoLines = function (line1, line2) {
+        var y11 = line1.y1;
+        var y12 = line1.y2;
+        var y21 = line2.y1;
+        var y22 = line2.y2;
+
+        var x11 = line1.x1;
+        var x12 = line1.x2;
+        var x21 = line2.x1;
+        var x22 = line2.x2;
+
+        var angle1 = Math.atan2(y11 - y12, x11 - x12);
+        var angle2 = Math.atan2(y21 - y22, x21 - x22);
+
+        var angle = angle1 - angle2;
+        angle = angle * 180 / Math.PI;
+        if (angle < 0) angle = -angle;
+        // if (360 - angle < angle) angle = 360 - angle;
+
+        return 360 - angle;
     };
 
     this.resizeCanvas = function () {
@@ -571,6 +715,8 @@ function Light(wavelength) {
 
     this.intersections = [];
 
+    this.normalVectors = [];
+
     this.updateStroke = function () {
         if (this.visibleLight) {
             this.entity.setStroke("white");
@@ -585,7 +731,7 @@ function Light(wavelength) {
 
     this.findClosestIntersectionWithPrism = function (prism) {
         var lastSegmentCoords = this.getLastSegment().getCoords();
-        var intersection = fabric.Intersection.intersectLinePolygon(lastSegmentCoords[0], lastSegmentCoords[1], prism.getPointsCoords());
+        var intersection = this.intersectLinePolygon(lastSegmentCoords[0], lastSegmentCoords[1], prism.getPointsCoords());
         if (intersection.status === "Intersection") {
             var filteredIntersections = this.removePointsNearbyLastIntersection(intersection.points);
             if (filteredIntersections.length == 0)
@@ -595,6 +741,26 @@ function Light(wavelength) {
         else {
             return null;
         }
+    };
+
+    this.intersectLinePolygon = function (a1, a2, points) {
+        var result = new fabric.Intersection(),
+            length = points.length,
+            b1, b2, inter;
+
+        for (var i = 0; i < length; i++) {
+            b1 = points[i];
+            b2 = points[(i + 1) % length];
+            inter = fabric.Intersection.intersectLineLine(a1, a2, b1, b2);
+            if (inter.points.length > 0) {
+                inter.points[0].line = {x1: b1.x, y1: b1.y, x2: b2.x, y2: b2.y};
+            }
+            result.appendPoints(inter.points);
+        }
+        if (result.points.length > 0) {
+            result.status = 'Intersection';
+        }
+        return result;
     };
 
     this.removePointsNearbyLastIntersection = function (array) {
@@ -751,6 +917,32 @@ function Gui(app) {
         sizeOfIntersectionsController.name("Size of Intersections");
         sizeOfIntersectionsController.onChange(function (value) {
             app.changeSizeOfIntersections();
+        });
+
+        var normalVectorsFolder = this.gui.addFolder("Normal vectors");
+
+        var showNormalVectorsOption = normalVectorsFolder.add(app, "showNormalVectors");
+        showNormalVectorsOption.name("Show Normal Vectors");
+        showNormalVectorsOption.onChange(function (value) {
+            app.toggleNormalVectorsVisibility();
+        });
+
+        var colorOfNormalVectorsController = normalVectorsFolder.addColor(app, "colorOfNormalVectors");
+        colorOfNormalVectorsController.name("Color of Normal Vectors");
+        colorOfNormalVectorsController.onChange(function (value) {
+            app.changeColorOfNormalVectors();
+        });
+
+        var widthOfNormalVectorsController = normalVectorsFolder.add(app, "widthOfNormalVectors", 1, 6);
+        widthOfNormalVectorsController.name("Width of Normal Vectors");
+        widthOfNormalVectorsController.onChange(function (value) {
+            app.changeWidthOfNormalVectors();
+        });
+
+        var lengthOfNormalVectorsController = normalVectorsFolder.add(app, "lengthOfNormalVectors", 1, 300);
+        lengthOfNormalVectorsController.name("Length of Normal Vectors");
+        lengthOfNormalVectorsController.onChange(function (value) {
+            app.changeLengthOfNormalVectors();
         });
 
         this.lasersFolder = this.gui.addFolder('Lasers');
