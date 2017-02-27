@@ -17,8 +17,9 @@ function App(canvasSelector) {
     this.widthOfNormalVectors = 1;
     this.lengthOfNormalVectors = 100;
 
-    this.enviromentIndexOfRefraction = 1.000293;
+    this.enviromentIndexOfRefraction = 1.0003;
     this.prismsIndexOfRefraction = 1.333;
+    this.refractiveIndicesTable = null;
 
     this.init = function () {
         this.canvas = new fabric.Canvas(canvasSelector, {
@@ -34,6 +35,8 @@ function App(canvasSelector) {
         });
 
         this.resizeCanvas();
+
+        this.createRefractiveIndicesTable();
 
         this.gui = new Gui(self);
 
@@ -524,6 +527,62 @@ function App(canvasSelector) {
         console.log(posX + ", " + posY);    // Log to console
     };
 
+    this.createRefractiveIndicesTable = function () {
+        var svgData = '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="180">' +
+            '<foreignObject width="100%" height="100%">' +
+            '<div xmlns="http://www.w3.org/1999/xhtml" style="font-size:10px; color: white; font-family: sans-serif">' +
+            '<style>' +
+            'table {' +
+            'border-collapse: collapse;' +
+            'width: 100%;' +
+            '}' +
+
+            'th, td {' +
+            '    text-align: left;' +
+            '    padding: 8px;' +
+            '}' +
+
+            'th {' +
+            '    background-color: #4CAF50;' +
+            '    color: white;' +
+            '}' +
+            '</style>' +
+            '<table border="1" style="border-collapse: collapse;"><thead>' +
+            '<tr><td>Material</td><td>Index of Refraction</td></tr>' +
+            '</thead>' +
+            '<tbody>' +
+            '<tr><td>Vacuum</td><td>1</td></tr>' +
+            '<tr><td>Air</td><td>1.0003</td></tr>' +
+            '<tr><td>Water</td><td>1.3300</td></tr>' +
+            '<tr><td>Glass</td><td>1.5000</td></tr>' +
+            '<tr><td>Diamond</td><td>2.4170</td></tr>' +
+            '</tbody>' +
+            '</table>' +
+            '</div>' +
+            '</foreignObject>' +
+            '</svg>';
+
+        // creating image from svg
+        var DOMURL = window.URL || window.webkitURL || window;
+        var img = new Image();
+        var svg = new Blob([svgData], {type: 'image/svg+xml'});
+        var url = DOMURL.createObjectURL(svg);
+        var imgInstance = new fabric.Image(null, {
+            left: self.canvas.getWidth() - 220,
+            top: self.canvas.getHeight() - 180,
+            width: 200,
+            height: 180,
+            visible: false
+        });
+        self.canvas.add(imgInstance);
+        self.refractiveIndicesTable = imgInstance;
+
+        img.addEventListener('load', function () {
+            self.refractiveIndicesTable.setElement(img);
+        });
+        img.src = url;
+    };
+
     // On construction call init method
     this.init();
 }
@@ -949,17 +1008,23 @@ function Gui(app) {
 
         var indexOfRefractionFolder = this.gui.addFolder("Index of Refraction");
 
-        var enviromentIndexOfRefraction = indexOfRefractionFolder.add(app, "enviromentIndexOfRefraction", 1, 3, 0.000001);
+        var enviromentIndexOfRefraction = indexOfRefractionFolder.add(app, "enviromentIndexOfRefraction", 1, 3, 0.0001);
         enviromentIndexOfRefraction.name("Enviroment Index of Refraction");
         // enviromentIndexOfRefraction.
         enviromentIndexOfRefraction.onChange(function (value) {
             app.redraw();
         });
 
-        var prismsIndexOfRefraction = indexOfRefractionFolder.add(app, "prismsIndexOfRefraction", 1, 3, 0.000001);
+        var prismsIndexOfRefraction = indexOfRefractionFolder.add(app, "prismsIndexOfRefraction", 1, 3, 0.0001);
         prismsIndexOfRefraction.name("Prisms Index of Refraction");
         prismsIndexOfRefraction.onChange(function (value) {
             app.redraw();
+        });
+
+        var showRefractiveIndicesOption = indexOfRefractionFolder.add(app.refractiveIndicesTable, "visible");
+        showRefractiveIndicesOption.name("Show Table");
+        showRefractiveIndicesOption.onChange(function (value) {
+            app.canvas.renderAll();
         });
 
         this.lasersFolder = this.gui.addFolder('Lasers');
@@ -978,7 +1043,7 @@ function Gui(app) {
         var newFolder = this.lasersFolder.addFolder("Laser " + laser.id);
         var controller;
         var button = newFolder.add(laser.beam.light, "visibleLight");
-        button.name("Visible Light");
+        button.name("White Light");
         button.onChange(function (value) {
             if (value) {
                 controller.domElement.style.pointerEvents = "none";
