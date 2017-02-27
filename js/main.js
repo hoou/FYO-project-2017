@@ -17,6 +17,9 @@ function App(canvasSelector) {
     this.widthOfNormalVectors = 1;
     this.lengthOfNormalVectors = 100;
 
+    this.enviromentIndexOfRefraction = 1.000293;
+    this.prismsIndexOfRefraction = 1.333;
+
     this.init = function () {
         this.canvas = new fabric.Canvas(canvasSelector, {
             renderOnAddRemove: false,
@@ -890,10 +893,9 @@ function Prism(x, y) {
 function Gui(app) {
     this.gui = null;
     this.lasersFolder = null;
-    this.prismsFolder = null;
 
     this.init = function () {
-        this.gui = new dat.GUI({width: 300});
+        this.gui = new dat.GUI({width: 420});
 
         var generalFolder = this.gui.addFolder("General");
 
@@ -945,16 +947,26 @@ function Gui(app) {
             app.changeLengthOfNormalVectors();
         });
 
+        var indexOfRefractionFolder = this.gui.addFolder("Index of Refraction");
+
+        var enviromentIndexOfRefraction = indexOfRefractionFolder.add(app, "enviromentIndexOfRefraction", 1, 3, 0.000001);
+        enviromentIndexOfRefraction.name("Enviroment Index of Refraction");
+        // enviromentIndexOfRefraction.
+        enviromentIndexOfRefraction.onChange(function (value) {
+            app.redraw();
+        });
+
+        var prismsIndexOfRefraction = indexOfRefractionFolder.add(app, "prismsIndexOfRefraction", 1, 3, 0.000001);
+        prismsIndexOfRefraction.name("Prisms Index of Refraction");
+        prismsIndexOfRefraction.onChange(function (value) {
+            app.redraw();
+        });
+
         this.lasersFolder = this.gui.addFolder('Lasers');
         this.lasersFolder.add(app, 'addLaser').name("Add New Laser");
 
-        this.prismsFolder = this.gui.addFolder('Prisms');
-        this.prismsFolder.add(app, 'addPrism').name("Add New Prism");
-
-        //TODO maybe uncomment, dont know what is actually better :-)
-        // generalFolder.open();
-        // this.lasersFolder.open();
-        // this.prismsFolder.open();
+        var prismsFolder = this.gui.addFolder('Prisms');
+        prismsFolder.add(app, 'addPrism').name("Add New Prism");
     };
 
     this.reset = function () {
