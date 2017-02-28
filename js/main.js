@@ -9,16 +9,16 @@ function App(canvasSelector) {
     this.prisms = [];
 
     this.showIntersections = false;
-    this.colorOfIntersections = "#ffff00";
-    this.sizeOfIntersections = 3;
+    this.colorOfIntersections = "#000000";
+    this.sizeOfIntersections = 0;
 
     this.showNormalVectors = false;
-    this.colorOfNormalVectors = "#30ff76";
-    this.widthOfNormalVectors = 1;
-    this.lengthOfNormalVectors = 100;
+    this.colorOfNormalVectors = "#000000";
+    this.widthOfNormalVectors = 0;
+    this.lengthOfNormalVectors = 0;
 
-    this.enviromentIndexOfRefraction = 1.0003;
-    this.prismsIndexOfRefraction = 1.333;
+    this.enviromentIndexOfRefraction = 0;
+    this.prismsIndexOfRefraction = 0;
     this.refractiveIndicesTable = null;
 
     this.init = function () {
@@ -38,6 +38,8 @@ function App(canvasSelector) {
 
         this.createRefractiveIndicesTable();
 
+        this.setupOptions();
+
         this.gui = new Gui(self);
 
         this.addLaser();
@@ -55,14 +57,30 @@ function App(canvasSelector) {
         });
         this.prisms = [];
 
-        this.canvas.renderAll();
+        this.setupOptions();
+        this.initRefractiveIndicecTablePositionAndSize();
 
-        this.showIntersections = false;
+        this.canvas.renderAll();
 
         this.gui.reset();
 
         this.addLaser();
         this.addPrism();
+    };
+
+    this.setupOptions = function () {
+        this.showIntersections = false;
+        this.colorOfIntersections = "#ffff00";
+        this.sizeOfIntersections = 3;
+
+        this.showNormalVectors = false;
+        this.colorOfNormalVectors = "#30ff76";
+        this.widthOfNormalVectors = 1;
+        this.lengthOfNormalVectors = 100;
+
+        this.refractiveIndicesTable.visible = false;
+        this.enviromentIndexOfRefraction = 1.0003;
+        this.prismsIndexOfRefraction = 1.333;
     };
 
     this.changeColorOfIntersections = function () {
@@ -568,19 +586,26 @@ function App(canvasSelector) {
         var svg = new Blob([svgData], {type: 'image/svg+xml'});
         var url = DOMURL.createObjectURL(svg);
         var imgInstance = new fabric.Image(null, {
-            left: self.canvas.getWidth() - 220,
-            top: self.canvas.getHeight() - 180,
-            width: 200,
-            height: 180,
             visible: false
         });
-        self.canvas.add(imgInstance);
         self.refractiveIndicesTable = imgInstance;
-
+        self.initRefractiveIndicecTablePositionAndSize();
+        self.canvas.add(imgInstance);
         img.addEventListener('load', function () {
             self.refractiveIndicesTable.setElement(img);
         });
         img.src = url;
+    };
+
+    this.initRefractiveIndicecTablePositionAndSize = function () {
+        this.refractiveIndicesTable.setWidth(200);
+        this.refractiveIndicesTable.setHeight(180);
+        this.refractiveIndicesTable.scaleX = 1;
+        this.refractiveIndicesTable.scaleY = 1;
+        this.refractiveIndicesTable.angle = 0;
+        this.refractiveIndicesTable.setLeft(self.canvas.getWidth() - 220);
+        this.refractiveIndicesTable.setTop(self.canvas.getHeight() - 180);
+        this.refractiveIndicesTable.setCoords();
     };
 
     // On construction call init method
