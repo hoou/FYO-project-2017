@@ -495,10 +495,12 @@ function App(canvasSelector) {
             R = 29.135 * refractiveIndex - 38.837;
             G = 0;
             B = 51;
-        } else {
+        } else if (refractiveIndex > 2.5 && refractiveIndex <= 4) {
             R = 11.333 * refractiveIndex + 5.6675;
             G = 22.667 * refractiveIndex - 56.667;
             B = 51;
+        } else {
+            R = G = B = 0;
         }
         return "rgb(" + Math.round(R) + "," + Math.round(G) + "," + Math.round(B) + ")";
     };
