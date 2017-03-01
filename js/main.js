@@ -69,6 +69,8 @@ function App(canvasSelector) {
     };
 
     this.setupOptions = function () {
+        this.canvas.setBackgroundColor("#000");
+
         this.showIntersections = false;
         this.colorOfIntersections = "#ffff00";
         this.sizeOfIntersections = 3;
@@ -473,7 +475,32 @@ function App(canvasSelector) {
                 });
             }
         });
+
+        self.canvas.setBackgroundColor(self.computeColorByRefractiveIndex(self.enviromentIndexOfRefraction));
+
+        self.prisms.forEach(function (prism) {
+            prism.entity.setFill(self.computeColorByRefractiveIndex(self.prismsIndexOfRefraction));
+        });
+
         self.canvas.renderAll();
+    };
+
+    this.computeColorByRefractiveIndex = function (refractiveIndex) {
+        var R, G, B;
+        if (refractiveIndex >= 1 && refractiveIndex <= 1.333) {
+            R = 0;
+            G = 0;
+            B = 153.153 * refractiveIndex - 153.153;
+        } else if (refractiveIndex > 1.333 && refractiveIndex <= 2.5) {
+            R = 29.135 * refractiveIndex - 38.837;
+            G = 0;
+            B = 51;
+        } else {
+            R = 11.333 * refractiveIndex + 5.6675;
+            G = 22.667 * refractiveIndex - 56.667;
+            B = 51;
+        }
+        return "rgb(" + Math.round(R) + "," + Math.round(G) + "," + Math.round(B) + ")";
     };
 
     this.makeNormalVector = function (point, points) {
