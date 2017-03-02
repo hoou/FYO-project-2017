@@ -1115,6 +1115,7 @@ function Gui(app) {
         });
 
         controller = newFolder.add(laser.beam.light, 'wavelength', 400, 700);
+        controller.step(1);
         controller.onChange(function (value) {
             laser.colorLabel.setFill(laser.beam.light.wavelengthToColor(value));
             laser.beam.light.updateStroke();
