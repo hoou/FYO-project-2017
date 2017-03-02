@@ -17,6 +17,8 @@ function App(canvasSelector) {
     this.widthOfNormalVectors = 0;
     this.lengthOfNormalVectors = 0;
 
+    this.environmentElement = null;
+    this.prismsElement = null;
     this.refractiveIndices = {};
 
     this.init = function () {
@@ -34,14 +36,14 @@ function App(canvasSelector) {
 
         this.resizeCanvas();
 
+        this.loadRefractiveIndices();
+
         this.setupOptions();
 
         this.gui = new Gui(self);
-
         this.addLaser();
-        this.addPrism();
 
-        this.loadRefractiveIndices();
+        this.addPrism();
     };
 
     this.reset = function () {
@@ -75,8 +77,8 @@ function App(canvasSelector) {
         this.widthOfNormalVectors = 1;
         this.lengthOfNormalVectors = 100;
 
-        this.enviromentIndexOfRefraction = 1.0003;
-        this.prismsIndexOfRefraction = 1.333;
+        this.environmentElement = "air";
+        this.prismsElement = "glass";
     };
 
     this.loadRefractiveIndices = function () {
@@ -389,8 +391,6 @@ function App(canvasSelector) {
             laser.beam.light.entity.setWidth(laser.beam.light.entity.getCoords()[0].distanceFrom(closestIntersection));
 
             var firstIntersection = closestIntersection;
-
-            // console.log(firstIntersection);
 
             var firstNormalVector = self.makeNormalVector(firstIntersection, firstIntersection.line);
             laser.beam.light.normalVectors.push(firstNormalVector);
@@ -982,6 +982,20 @@ function Gui(app) {
         lengthOfNormalVectorsController.name("Length of Normal Vectors");
         lengthOfNormalVectorsController.onChange(function (value) {
             app.changeLengthOfNormalVectors();
+        });
+
+        var indexOfRefractionFolder = this.gui.addFolder("Index of Refraction");
+
+        var environmentElementController = indexOfRefractionFolder.add(app, "environmentElement", ["air", "water", "glass"]);
+        environmentElementController.name("Environment");
+        environmentElementController.onChange(function (value) {
+            app.redraw();
+        });
+
+        var prismsElementController = indexOfRefractionFolder.add(app, "prismsElement", ["air", "water", "glass"]);
+        prismsElementController.name("Prisms");
+        prismsElementController.onChange(function (value) {
+            app.redraw();
         });
 
         this.lasersFolder = this.gui.addFolder('Lasers');
