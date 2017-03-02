@@ -19,7 +19,6 @@ function App(canvasSelector) {
 
     this.enviromentIndexOfRefraction = 0;
     this.prismsIndexOfRefraction = 0;
-    this.refractiveIndicesTable = null;
 
     this.refractiveIndices = {};
 
@@ -37,8 +36,6 @@ function App(canvasSelector) {
         });
 
         this.resizeCanvas();
-
-        this.createRefractiveIndicesTable();
 
         this.setupOptions();
 
@@ -62,7 +59,6 @@ function App(canvasSelector) {
         this.prisms = [];
 
         this.setupOptions();
-        this.initRefractiveIndicecTablePositionAndSize();
 
         this.canvas.renderAll();
 
@@ -82,7 +78,6 @@ function App(canvasSelector) {
         this.widthOfNormalVectors = 1;
         this.lengthOfNormalVectors = 100;
 
-        this.refractiveIndicesTable.visible = false;
         this.enviromentIndexOfRefraction = 1.0003;
         this.prismsIndexOfRefraction = 1.333;
     };
@@ -569,69 +564,6 @@ function App(canvasSelector) {
         console.log(posX + ", " + posY);    // Log to console
     };
 
-    this.createRefractiveIndicesTable = function () {
-        var svgData = '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="180">' +
-            '<foreignObject width="100%" height="100%">' +
-            '<div xmlns="http://www.w3.org/1999/xhtml" style="font-size:10px; color: white; font-family: sans-serif">' +
-            '<style>' +
-            'table {' +
-            'border-collapse: collapse;' +
-            'width: 100%;' +
-            '}' +
-
-            'th, td {' +
-            '    text-align: left;' +
-            '    padding: 8px;' +
-            '}' +
-
-            'th {' +
-            '    background-color: #4CAF50;' +
-            '    color: white;' +
-            '}' +
-            '</style>' +
-            '<table border="1" style="border-collapse: collapse;"><thead>' +
-            '<tr><td>Material</td><td>Index of Refraction</td></tr>' +
-            '</thead>' +
-            '<tbody>' +
-            '<tr><td>Vacuum</td><td>1</td></tr>' +
-            '<tr><td>Air</td><td>1.0003</td></tr>' +
-            '<tr><td>Water</td><td>1.3300</td></tr>' +
-            '<tr><td>Glass</td><td>1.5000</td></tr>' +
-            '<tr><td>Diamond</td><td>2.4170</td></tr>' +
-            '</tbody>' +
-            '</table>' +
-            '</div>' +
-            '</foreignObject>' +
-            '</svg>';
-
-        // creating image from svg
-        var DOMURL = window.URL || window.webkitURL || window;
-        var img = new Image();
-        var svg = new Blob([svgData], {type: 'image/svg+xml'});
-        var url = DOMURL.createObjectURL(svg);
-        var imgInstance = new fabric.Image(null, {
-            visible: false
-        });
-        self.refractiveIndicesTable = imgInstance;
-        self.initRefractiveIndicecTablePositionAndSize();
-        self.canvas.add(imgInstance);
-        img.addEventListener('load', function () {
-            self.refractiveIndicesTable.setElement(img);
-        });
-        img.src = url;
-    };
-
-    this.initRefractiveIndicecTablePositionAndSize = function () {
-        this.refractiveIndicesTable.setWidth(200);
-        this.refractiveIndicesTable.setHeight(180);
-        this.refractiveIndicesTable.scaleX = 1;
-        this.refractiveIndicesTable.scaleY = 1;
-        this.refractiveIndicesTable.angle = 0;
-        this.refractiveIndicesTable.setLeft(self.canvas.getWidth() - 220);
-        this.refractiveIndicesTable.setTop(self.canvas.getHeight() - 180);
-        this.refractiveIndicesTable.setCoords();
-    };
-
     // On construction call init method
     this.init();
 }
@@ -1070,12 +1002,6 @@ function Gui(app) {
             app.redraw();
         });
 
-        var showRefractiveIndicesOption = indexOfRefractionFolder.add(app.refractiveIndicesTable, "visible");
-        showRefractiveIndicesOption.name("Show Table");
-        showRefractiveIndicesOption.onChange(function (value) {
-            app.canvas.renderAll();
-        });
-
         this.lasersFolder = this.gui.addFolder('Lasers');
         this.lasersFolder.add(app, 'addLaser').name("Add New Laser");
 
@@ -1110,7 +1036,6 @@ function Gui(app) {
         });
 
         controller = newFolder.add(laser.beam.light, 'wavelength', 400, 700);
-        controller.step(1);
         controller.onChange(function (value) {
             laser.colorLabel.setFill(laser.beam.light.wavelengthToColor(value));
             laser.beam.light.updateStroke();
