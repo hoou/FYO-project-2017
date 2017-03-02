@@ -17,9 +17,6 @@ function App(canvasSelector) {
     this.widthOfNormalVectors = 0;
     this.lengthOfNormalVectors = 0;
 
-    this.enviromentIndexOfRefraction = 0;
-    this.prismsIndexOfRefraction = 0;
-
     this.refractiveIndices = {};
 
     this.init = function () {
@@ -985,21 +982,6 @@ function Gui(app) {
         lengthOfNormalVectorsController.name("Length of Normal Vectors");
         lengthOfNormalVectorsController.onChange(function (value) {
             app.changeLengthOfNormalVectors();
-        });
-
-        var indexOfRefractionFolder = this.gui.addFolder("Index of Refraction");
-
-        var enviromentIndexOfRefraction = indexOfRefractionFolder.add(app, "enviromentIndexOfRefraction", 1, 3, 0.0001);
-        enviromentIndexOfRefraction.name("Enviroment Index of Refraction");
-        // enviromentIndexOfRefraction.
-        enviromentIndexOfRefraction.onChange(function (value) {
-            app.redraw();
-        });
-
-        var prismsIndexOfRefraction = indexOfRefractionFolder.add(app, "prismsIndexOfRefraction", 1, 3, 0.0001);
-        prismsIndexOfRefraction.name("Prisms Index of Refraction");
-        prismsIndexOfRefraction.onChange(function (value) {
-            app.redraw();
         });
 
         this.lasersFolder = this.gui.addFolder('Lasers');
