@@ -84,19 +84,19 @@ function App(canvasSelector) {
     this.loadRefractiveIndices = function () {
         // https://refractiveindex.info/?shelf=other&book=air&page=Ciddor
         // standard air: dry air at 15 °C, 101.325 kPa and with 450 ppm CO2 content
-        $.getJSON("js/refractive_indices/air.json", function(json) {
+        $.getJSON("js/refractive_indices/air.json", function (json) {
             self.refractiveIndices.air = json;
         });
 
         // https://refractiveindex.info/?shelf=main&book=H2O&page=Daimon-19.0C
         // distilled water at 19.0°C
-        $.getJSON("js/refractive_indices/water.json", function(json) {
+        $.getJSON("js/refractive_indices/water.json", function (json) {
             self.refractiveIndices.water = json;
         });
 
         // https://refractiveindex.info/?shelf=glass&book=BK7&page=SCHOTT
         // BK7 glass
-        $.getJSON("js/refractive_indices/glass.json", function(json) {
+        $.getJSON("js/refractive_indices/glass.json", function (json) {
             self.refractiveIndices.glass = json;
         });
     };
@@ -493,7 +493,7 @@ function App(canvasSelector) {
     };
 
     this.makeNormalVector = function (point, points) {
-        var angle = this.computeAngleBetweenTwoLines({x1: 0, y1: 0, x2: 1, y2: 0}, points);
+        var angle = maths.computeAngleBetweenTwoLines({x1: 0, y1: 0, x2: 1, y2: 0}, points);
         return new fabric.Line([0, 0, self.lengthOfNormalVectors, 0], {
             stroke: self.colorOfNormalVectors,
             strokeWidth: self.widthOfNormalVectors,
@@ -510,29 +510,6 @@ function App(canvasSelector) {
             top: point.y,
             angle: angle + 90
         });
-    };
-
-    // http://stackoverflow.com/questions/28466589/fabricjs-how-i-can-make-an-angle-measurement
-    this.computeAngleBetweenTwoLines = function (line1, line2) {
-        var y11 = line1.y1;
-        var y12 = line1.y2;
-        var y21 = line2.y1;
-        var y22 = line2.y2;
-
-        var x11 = line1.x1;
-        var x12 = line1.x2;
-        var x21 = line2.x1;
-        var x22 = line2.x2;
-
-        var angle1 = Math.atan2(y11 - y12, x11 - x12);
-        var angle2 = Math.atan2(y21 - y22, x21 - x22);
-
-        var angle = angle1 - angle2;
-        angle = angle * 180 / Math.PI;
-        if (angle < 0) angle = -angle;
-        // if (360 - angle < angle) angle = 360 - angle;
-
-        return 360 - angle;
     };
 
     this.resizeCanvas = function () {
@@ -558,7 +535,7 @@ function App(canvasSelector) {
         var pointer = this.canvas.getPointer(event.e);
         var posY = pointer.y;
         var posX = pointer.x;
-        console.log(posX + ", " + posY);    // Log to console
+        // console.log(posX + ", " + posY);    // Log to console
     };
 
     // On construction call init method
@@ -739,7 +716,7 @@ function Light(wavelength) {
     this.wavelength = wavelength || 700;
 
     this.entity = new fabric.Line([0, 0, 3000, 0], {
-        stroke: (wavelength ? self.wavelengthToColor(wavelength) : "white"),
+        stroke: (wavelength ? maths.wavelengthToColor(wavelength) : "white"),
         strokeWidth: 2,
         selectable: false,
         hasControls: false,
@@ -761,7 +738,7 @@ function Light(wavelength) {
         if (this.visibleLight) {
             this.entity.setStroke("white");
         } else {
-            this.entity.setStroke(this.wavelengthToColor(this.wavelength));
+            this.entity.setStroke(maths.wavelengthToColor(this.wavelength));
         }
     };
 
@@ -771,36 +748,16 @@ function Light(wavelength) {
 
     this.findClosestIntersectionWithPrism = function (prism) {
         var lastSegmentCoords = this.getLastSegment().getCoords();
-        var intersection = this.intersectLinePolygon(lastSegmentCoords[0], lastSegmentCoords[1], prism.getPointsCoords());
+        var intersection = maths.intersectLinePolygon(lastSegmentCoords[0], lastSegmentCoords[1], prism.getPointsCoords());
         if (intersection.status === "Intersection") {
             var filteredIntersections = this.removePointsNearbyLastIntersection(intersection.points);
             if (filteredIntersections.length == 0)
                 return null;
-            return this.pickClosestPointTo(new fabric.Point(lastSegmentCoords[0].x, lastSegmentCoords[0].y), filteredIntersections);
+            return maths.pickClosestPointTo(new fabric.Point(lastSegmentCoords[0].x, lastSegmentCoords[0].y), filteredIntersections);
         }
         else {
             return null;
         }
-    };
-
-    this.intersectLinePolygon = function (a1, a2, points) {
-        var result = new fabric.Intersection(),
-            length = points.length,
-            b1, b2, inter;
-
-        for (var i = 0; i < length; i++) {
-            b1 = points[i];
-            b2 = points[(i + 1) % length];
-            inter = fabric.Intersection.intersectLineLine(a1, a2, b1, b2);
-            if (inter.points.length > 0) {
-                inter.points[0].line = {x1: b1.x, y1: b1.y, x2: b2.x, y2: b2.y};
-            }
-            result.appendPoints(inter.points);
-        }
-        if (result.points.length > 0) {
-            result.status = 'Intersection';
-        }
-        return result;
     };
 
     this.removePointsNearbyLastIntersection = function (array) {
@@ -810,84 +767,13 @@ function Light(wavelength) {
         var newArray = [];
         array.forEach(function (testedPoint) {
             var lastIntersection = self.intersections[self.intersections.length - 1];
-            if (!self.isPointInsideCircle(testedPoint, new fabric.Point(lastIntersection.left, lastIntersection.top), lastIntersection.radius)) {
+            if (!maths.isPointInsideCircle(testedPoint, new fabric.Point(lastIntersection.left, lastIntersection.top), lastIntersection.radius)) {
                 newArray.push(testedPoint);
             }
         });
         return newArray;
     };
-
-    this.pickClosestPointTo = function (point, array) {
-        var closest = array[0];
-        var distance = point.distanceFrom(closest);
-        array.forEach(function (secondPoint) {
-            var secondDistance;
-            if ((secondDistance = point.distanceFrom(secondPoint)) < distance) {
-                closest = secondPoint;
-                distance = secondDistance;
-            }
-        });
-        return {
-            point: closest,
-            distance: distance
-        };
-    };
-
-    this.isPointInsideCircle = function (point1, point2, r) {
-        return point1.distanceFrom(point2) < r;
-    };
 }
-
-// http://scienceprimer.com/javascript-code-convert-light-wavelength-color
-Light.prototype.wavelengthToColor = function (wavelength) {
-    var R,
-        G,
-        B,
-        alpha;
-
-    if (wavelength >= 380 && wavelength < 440) {
-        R = -1 * (wavelength - 440) / (440 - 380);
-        G = 0;
-        B = 1;
-    } else if (wavelength >= 440 && wavelength < 490) {
-        R = 0;
-        G = (wavelength - 440) / (490 - 440);
-        B = 1;
-    } else if (wavelength >= 490 && wavelength < 510) {
-        R = 0;
-        G = 1;
-        B = -1 * (wavelength - 510) / (510 - 490);
-    } else if (wavelength >= 510 && wavelength < 580) {
-        R = (wavelength - 510) / (580 - 510);
-        G = 1;
-        B = 0;
-    } else if (wavelength >= 580 && wavelength < 645) {
-        R = 1;
-        G = -1 * (wavelength - 645) / (645 - 580);
-        B = 0.0;
-    } else if (wavelength >= 645 && wavelength <= 780) {
-        R = 1;
-        G = 0;
-        B = 0;
-    } else {
-        R = 0;
-        G = 0;
-        B = 0;
-    }
-
-    // intensity is lower at the edges of the visible spectrum
-    if (wavelength > 780 || wavelength < 380) {
-        alpha = 0;
-    } else if (wavelength > 700) {
-        alpha = (780 - wavelength) / (780 - 700);
-    } else if (wavelength < 420) {
-        alpha = (wavelength - 380) / (420 - 380);
-    } else {
-        alpha = 1;
-    }
-
-    return "rgba(" + (R * 100) + "%," + (G * 100) + "%," + (B * 100) + "%, " + alpha + ")";
-};
 
 function Prism(x, y) {
     this.entity = new fabric.Polyline([
@@ -1023,7 +909,7 @@ function Gui(app) {
             } else {
                 controller.domElement.style.pointerEvents = "";
                 controller.domElement.style.opacity = 1;
-                laser.colorLabel.setFill(laser.beam.light.wavelengthToColor(laser.beam.light.wavelength));
+                laser.colorLabel.setFill(maths.wavelengthToColor(laser.beam.light.wavelength));
             }
             laser.beam.light.updateStroke();
             app.destroySpectrum(laser);
@@ -1033,7 +919,7 @@ function Gui(app) {
 
         controller = newFolder.add(laser.beam.light, 'wavelength', 400, 700);
         controller.onChange(function (value) {
-            laser.colorLabel.setFill(laser.beam.light.wavelengthToColor(value));
+            laser.colorLabel.setFill(maths.wavelengthToColor(value));
             laser.beam.light.updateStroke();
             app.destroySpectrum(laser);
             laser.beam.createSpectrum();
@@ -1046,3 +932,129 @@ function Gui(app) {
 
     this.init();
 }
+
+(function (maths, $, undefined) {
+    // http://stackoverflow.com/questions/9705123/how-can-i-get-sin-cos-and-tan-to-use-degrees-instead-of-radians
+    maths.toDegrees = function (angle) {
+        return angle * (180 / Math.PI);
+    };
+
+    // http://stackoverflow.com/questions/9705123/how-can-i-get-sin-cos-and-tan-to-use-degrees-instead-of-radians
+    maths.toRadians = function (angle) {
+        return angle * (Math.PI / 180);
+    };
+
+    // http://stackoverflow.com/questions/28466589/fabricjs-how-i-can-make-an-angle-measurement
+    maths.computeAngleBetweenTwoLines = function (line1, line2) {
+        var y11 = line1.y1;
+        var y12 = line1.y2;
+        var y21 = line2.y1;
+        var y22 = line2.y2;
+
+        var x11 = line1.x1;
+        var x12 = line1.x2;
+        var x21 = line2.x1;
+        var x22 = line2.x2;
+
+        var angle1 = Math.atan2(y11 - y12, x11 - x12);
+        var angle2 = Math.atan2(y21 - y22, x21 - x22);
+
+        var angle = angle1 - angle2;
+        angle = maths.toDegrees(angle);
+        if (angle < 0) angle = -angle;
+        // if (360 - angle < angle) angle = 360 - angle;
+
+        return 360 - angle;
+    };
+
+    maths.intersectLinePolygon = function (a1, a2, points) {
+        var result = new fabric.Intersection(),
+            length = points.length,
+            b1, b2, inter;
+
+        for (var i = 0; i < length; i++) {
+            b1 = points[i];
+            b2 = points[(i + 1) % length];
+            inter = fabric.Intersection.intersectLineLine(a1, a2, b1, b2);
+            if (inter.points.length > 0) {
+                inter.points[0].line = {x1: b1.x, y1: b1.y, x2: b2.x, y2: b2.y};
+            }
+            result.appendPoints(inter.points);
+        }
+        if (result.points.length > 0) {
+            result.status = 'Intersection';
+        }
+        return result;
+    };
+
+    maths.pickClosestPointTo = function (point, array) {
+        var closest = array[0];
+        var distance = point.distanceFrom(closest);
+        array.forEach(function (secondPoint) {
+            var secondDistance;
+            if ((secondDistance = point.distanceFrom(secondPoint)) < distance) {
+                closest = secondPoint;
+                distance = secondDistance;
+            }
+        });
+        return {
+            point: closest,
+            distance: distance
+        };
+    };
+
+    maths.isPointInsideCircle = function (point1, point2, r) {
+        return point1.distanceFrom(point2) < r;
+    };
+
+    // http://scienceprimer.com/javascript-code-convert-light-wavelength-color
+    maths.wavelengthToColor = function (wavelength) {
+        var R,
+            G,
+            B,
+            alpha;
+
+        if (wavelength >= 380 && wavelength < 440) {
+            R = -1 * (wavelength - 440) / (440 - 380);
+            G = 0;
+            B = 1;
+        } else if (wavelength >= 440 && wavelength < 490) {
+            R = 0;
+            G = (wavelength - 440) / (490 - 440);
+            B = 1;
+        } else if (wavelength >= 490 && wavelength < 510) {
+            R = 0;
+            G = 1;
+            B = -1 * (wavelength - 510) / (510 - 490);
+        } else if (wavelength >= 510 && wavelength < 580) {
+            R = (wavelength - 510) / (580 - 510);
+            G = 1;
+            B = 0;
+        } else if (wavelength >= 580 && wavelength < 645) {
+            R = 1;
+            G = -1 * (wavelength - 645) / (645 - 580);
+            B = 0.0;
+        } else if (wavelength >= 645 && wavelength <= 780) {
+            R = 1;
+            G = 0;
+            B = 0;
+        } else {
+            R = 0;
+            G = 0;
+            B = 0;
+        }
+
+        // intensity is lower at the edges of the visible spectrum
+        if (wavelength > 780 || wavelength < 380) {
+            alpha = 0;
+        } else if (wavelength > 700) {
+            alpha = (780 - wavelength) / (780 - 700);
+        } else if (wavelength < 420) {
+            alpha = (wavelength - 380) / (420 - 380);
+        } else {
+            alpha = 1;
+        }
+
+        return "rgba(" + (R * 100) + "%," + (G * 100) + "%," + (B * 100) + "%, " + alpha + ")";
+    };
+}(window.maths = window.maths || {}, jQuery));
