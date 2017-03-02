@@ -1057,14 +1057,14 @@ function Gui(app) {
 
         var indexOfRefractionFolder = this.gui.addFolder("Index of Refraction");
 
-        var enviromentIndexOfRefraction = indexOfRefractionFolder.add(app, "enviromentIndexOfRefraction", 1, 4, 0.0001);
+        var enviromentIndexOfRefraction = indexOfRefractionFolder.add(app, "enviromentIndexOfRefraction", 1, 3, 0.0001);
         enviromentIndexOfRefraction.name("Enviroment Index of Refraction");
         // enviromentIndexOfRefraction.
         enviromentIndexOfRefraction.onChange(function (value) {
             app.redraw();
         });
 
-        var prismsIndexOfRefraction = indexOfRefractionFolder.add(app, "prismsIndexOfRefraction", 1, 4, 0.0001);
+        var prismsIndexOfRefraction = indexOfRefractionFolder.add(app, "prismsIndexOfRefraction", 1, 3, 0.0001);
         prismsIndexOfRefraction.name("Prisms Index of Refraction");
         prismsIndexOfRefraction.onChange(function (value) {
             app.redraw();
