@@ -21,6 +21,8 @@ function App(canvasSelector) {
     this.prismsIndexOfRefraction = 0;
     this.refractiveIndicesTable = null;
 
+    this.refractiveIndices = {};
+
     this.init = function () {
         this.canvas = new fabric.Canvas(canvasSelector, {
             renderOnAddRemove: false,
@@ -44,6 +46,8 @@ function App(canvasSelector) {
 
         this.addLaser();
         this.addPrism();
+
+        this.loadRefractiveIndices();
     };
 
     this.reset = function () {
@@ -83,6 +87,26 @@ function App(canvasSelector) {
         this.refractiveIndicesTable.visible = false;
         this.enviromentIndexOfRefraction = 1.0003;
         this.prismsIndexOfRefraction = 1.333;
+    };
+
+    this.loadRefractiveIndices = function () {
+        // https://refractiveindex.info/?shelf=other&book=air&page=Ciddor
+        // standard air: dry air at 15 °C, 101.325 kPa and with 450 ppm CO2 content
+        $.getJSON("js/refractive_indices/air.json", function(json) {
+            self.refractiveIndices.air = json;
+        });
+
+        // https://refractiveindex.info/?shelf=main&book=H2O&page=Daimon-19.0C
+        // distilled water at 19.0°C
+        $.getJSON("js/refractive_indices/water.json", function(json) {
+            self.refractiveIndices.water = json;
+        });
+
+        // https://refractiveindex.info/?shelf=glass&book=BK7&page=SCHOTT
+        // BK7 glass
+        $.getJSON("js/refractive_indices/glass.json", function(json) {
+            self.refractiveIndices.glass = json;
+        });
     };
 
     this.changeColorOfIntersections = function () {
