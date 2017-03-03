@@ -419,12 +419,10 @@ function App(canvasSelector) {
             this.lasers.forEach(function (laser) {
                 laser.beam.light.normalVectors.forEach(function (normalVector) {
                     normalVector.visible = true;
-                    self.canvas.sendToBack(normalVector);
                 });
                 laser.beam.spectrum.forEach(function (light) {
                     light.normalVectors.forEach(function (normalVector) {
                         normalVector.visible = true;
-                        self.canvas.sendToBack(normalVector);
                     })
                 })
             })
@@ -557,7 +555,6 @@ function App(canvasSelector) {
                 if (self.showNormalVectors) {
                     light.normalVectors.forEach(function (normalVector) {
                         normalVector.visible = true;
-                        self.canvas.sendToBack(normalVector);
                     });
                 }
             });
@@ -566,7 +563,6 @@ function App(canvasSelector) {
             if (self.showNormalVectors) {
                 laser.beam.light.normalVectors.forEach(function (normalVector) {
                     normalVector.visible = true;
-                    self.canvas.sendToBack(normalVector);
                 });
             }
         });
