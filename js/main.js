@@ -183,6 +183,7 @@ function App(canvasSelector) {
         });
 
         newLaser.entity.on("moving", function () {
+            self.intersectingCheck(this);
             if (newLaser.beam.getVisible()) {
                 newLaser.entity.setCoords();
                 newLaser.beam.move(newLaser.entity.left, newLaser.entity.top);
@@ -204,13 +205,52 @@ function App(canvasSelector) {
 
     this.addPrism = function (x, y) {
         var newPrism = new Prism(x || 20, y || self.canvas.getHeight() - 220);
-        newPrism.entity.on("moving", self.redraw);
+        newPrism.entity.on("moving", function () {
+            self.intersectingCheck(this);
+            self.redraw();
+        });
         newPrism.entity.on("rotating", self.redraw);
         newPrism.entity.on("modified", self.redraw);
         this.prisms.push(newPrism);
         this.canvas.add(newPrism.entity);
         this.canvas.sendToBack(newPrism.entity);
         this.redraw();
+    };
+
+    // http://jsfiddle.net/m0jjc23v/9/
+    this.intersectingCheck = function (activeObject) {
+        activeObject.setCoords();
+        if (typeof activeObject.refreshLast != 'boolean') {
+            activeObject.refreshLast = true
+        }
+
+        //loop canvas objects
+        activeObject.canvas.forEachObject(function (target) {
+            if (target === activeObject) return; //bypass self
+            if (!target.name || (target.name != 'prism' && target.name != 'laser')) return; //check only prisms and lasers
+
+            //check intersections with every object in canvas
+            if (activeObject.intersectsWithObject(target)
+                || activeObject.isContainedWithinObject(target)
+                || target.isContainedWithinObject(activeObject)) {
+                //objects are intersecting - deny saving last non-intersection position and break loop
+                if (typeof activeObject.lastLeft == 'number') {
+                    activeObject.left = activeObject.lastLeft;
+                    activeObject.top = activeObject.lastTop;
+                    activeObject.refreshLast = false;
+                    return;
+                }
+            }
+            else {
+                activeObject.refreshLast = true;
+            }
+        });
+
+        if (activeObject.refreshLast) {
+            //save last non-intersecting position if possible
+            activeObject.lastLeft = activeObject.left;
+            activeObject.lastTop = activeObject.top;
+        }
     };
 
     this.findClosestIntersectionBetweenLightAndPrisms = function (light) {
@@ -631,7 +671,8 @@ function Laser(id) {
         originX: 'center',
         originY: 'center',
         centeredRotation: false,
-        snapAngle: 1
+        snapAngle: 1,
+        name: 'laser'
     });
 
     this.buttonToggle = function () {
@@ -787,7 +828,8 @@ function Prism(x, y) {
         left: x,
         top: y,
         stroke: 'white',
-        fill: 'rgba(0,0,0,0)'
+        fill: 'rgba(0,0,0,0)',
+        name: 'prism'
     });
 
     this.entity.setControlsVisibility({
