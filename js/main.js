@@ -570,7 +570,25 @@ function App(canvasSelector) {
                 });
             }
         });
+
+        self.setColorOfEnvironmentAndPrismsByTheirComposition();
+
         self.canvas.renderAll();
+    };
+
+    this.setColorOfEnvironmentAndPrismsByTheirComposition = function () {
+        //TODO add this to Option class
+        var color = {
+            'default': "#000000",
+            'air': "#000000",
+            'water': "#070533",
+            'glass': "#2c2c2c"
+        };
+
+        this.canvas.setBackgroundColor(color[this.environmentElement]);
+        this.prisms.forEach(function (prism) {
+            prism.entity.setFill(color[self.prismsElement]);
+        })
     };
 
     this.makeNormalVector = function (point, points) {
