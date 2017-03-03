@@ -1057,4 +1057,8 @@ function Gui(app) {
 
         return "rgba(" + (R * 100) + "%," + (G * 100) + "%," + (B * 100) + "%, " + alpha + ")";
     };
+
+    maths.computeAngleUsingSnellLaw = function (t1, n1, n2) {
+        return maths.toDegrees(Math.asin((n1 * Math.sin(maths.toRadians(t1))) / n2));
+    }
 }(window.maths = window.maths || {}, jQuery));
