@@ -26,7 +26,8 @@ function App(canvasSelector) {
             renderOnAddRemove: false,
             skipTargetFind: false,
             backgroundColor: "#000",
-            preserveObjectStacking: true
+            preserveObjectStacking: true,
+            selection: false
         });
 
         //TODO just for testing
