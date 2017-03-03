@@ -43,7 +43,7 @@ function App(canvasSelector) {
         this.gui = new Gui(self);
         this.addLaser();
 
-        this.addPrism();
+        this.addPrism(300, 100);
     };
 
     this.reset = function () {
@@ -64,7 +64,7 @@ function App(canvasSelector) {
         this.gui.reset();
 
         this.addLaser();
-        this.addPrism();
+        this.addPrism(300, 100);
     };
 
     this.setupOptions = function () {
@@ -201,8 +201,8 @@ function App(canvasSelector) {
         this.gui.addLaser(newLaser);
     };
 
-    this.addPrism = function () {
-        var newPrism = new Prism();
+    this.addPrism = function (x, y) {
+        var newPrism = new Prism(x || 20, y || self.canvas.getHeight() - 220);
         newPrism.entity.on("moving", self.redraw);
         newPrism.entity.on("rotating", self.redraw);
         newPrism.entity.on("modified", self.redraw);
@@ -783,8 +783,8 @@ function Prism(x, y) {
         {x: 100, y: 0}
 
     ], {
-        left: x || 300,
-        top: y || 100,
+        left: x,
+        top: y,
         stroke: 'white',
         fill: 'rgba(0,0,0,0)'
     });
