@@ -196,11 +196,30 @@ function App(canvasSelector) {
             self.redraw();
         });
 
-        this.lasers.push(newLaser);
         this.canvas.add(newLaser.entity);
-        this.redraw();
 
-        this.gui.addLaser(newLaser);
+        var shouldRemove = false;
+
+        this.canvas.forEachObject(function (target) {
+            if (target === newLaser.entity) return; //bypass self
+            if (!target.name || (target.name != 'prism' && target.name != 'laser')) return;
+
+            //check intersections with every object in canvas
+            if (newLaser.entity.intersectsWithObject(target)
+                || newLaser.entity.isContainedWithinObject(target)
+                || target.isContainedWithinObject(newLaser.entity)) {
+                shouldRemove = true;
+            }
+        });
+
+        if (shouldRemove) {
+            this.canvas.remove(newLaser.entity);
+        }
+        else {
+            this.lasers.push(newLaser);
+            this.gui.addLaser(newLaser);
+            this.redraw();
+        }
     };
 
     this.addPrism = function (x, y) {
@@ -211,10 +230,31 @@ function App(canvasSelector) {
         });
         newPrism.entity.on("rotating", self.redraw);
         newPrism.entity.on("modified", self.redraw);
-        this.prisms.push(newPrism);
+
         this.canvas.add(newPrism.entity);
-        this.canvas.sendToBack(newPrism.entity);
-        this.redraw();
+
+        var shouldRemove = false;
+
+        this.canvas.forEachObject(function (target) {
+            if (target === newPrism.entity) return; //bypass self
+            if (!target.name || (target.name != 'prism' && target.name != 'laser')) return;
+
+            //check intersections with every object in canvas
+            if (newPrism.entity.intersectsWithObject(target)
+                || newPrism.entity.isContainedWithinObject(target)
+                || target.isContainedWithinObject(newPrism.entity)) {
+                shouldRemove = true;
+            }
+        });
+
+        if (shouldRemove) {
+            this.canvas.remove(newPrism.entity);
+        }
+        else {
+            this.prisms.push(newPrism);
+            this.canvas.sendToBack(newPrism.entity);
+            this.redraw();
+        }
     };
 
     // http://jsfiddle.net/m0jjc23v/9/
