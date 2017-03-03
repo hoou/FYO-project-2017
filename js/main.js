@@ -42,8 +42,8 @@ function App(canvasSelector) {
         this.setupOptions();
 
         this.gui = new Gui(self);
-        this.addLaser();
 
+        this.addLaser(100, 200);
         this.addPrism(300, 100);
     };
 
@@ -64,7 +64,7 @@ function App(canvasSelector) {
 
         this.gui.reset();
 
-        this.addLaser();
+        this.addLaser(100, 200);
         this.addPrism(300, 100);
     };
 
@@ -166,13 +166,13 @@ function App(canvasSelector) {
         this.canvas.renderAll();
     };
 
-    this.addLaser = function () {
+    this.addLaser = function (x, y) {
         if (this.lasers.length >= 5) {
             alert("Maximum 5 lasers allowed");
             return;
         }
 
-        var newLaser = new Laser(this.lasers.length + 1);
+        var newLaser = new Laser(this.lasers.length + 1, x, y);
 
         newLaser.entity.on("mousedown", function (e) {
             var innerTarget = newLaser.entity._searchPossibleTargets(e.e);
@@ -583,7 +583,7 @@ function App(canvasSelector) {
     this.init();
 }
 
-function Laser(id) {
+function Laser(id, x, y) {
     var self = this;
 
     this.id = id;
@@ -666,8 +666,8 @@ function Laser(id) {
     });
 
     this.entity = new fabric.Group([this.body, this.button, this.colorLabel, this.textLabel, this.frontPart], {
-        left: 150,
-        top: 200,
+        left: x || 50,
+        top: y || 20,
         originX: 'center',
         originY: 'center',
         centeredRotation: false,
