@@ -448,60 +448,128 @@ function App(canvasSelector) {
             laser.beam.light.entity.setWidth(3000);
             laser.beam.light.segments.push(laser.beam.light.entity);
 
+            // if laser is turned off, no need to redraw light
             if (!laser.beam.getVisible()) {
                 self.canvas.renderAll();
                 return;
             }
 
-            var closestIntersection;
+            // if prisms and environment are composed of the same element(material),
+            // there will be no reflection or refraction whatsoever, so just render main beam that goes straight
+            if (self.environmentElement == self.prismsElement) {
+                self.canvas.add(laser.beam.light.entity);
+                self.canvas.sendToBack(laser.beam.light.entity);
+                self.prisms.forEach(function (prism) {
+                    self.canvas.sendToBack(prism.entity);
+                });
+                self.canvas.renderAll();
+                return;
+            }
 
-            self.prisms.forEach(function (prism) {
-                prism.setCoords();
-            });
-            laser.beam.light.entity.setCoords();
-
-            if (!(closestIntersection = self.findClosestIntersectionBetweenLightAndPrisms(laser.beam.light))) {
+            var closestIntersection = self.findClosestIntersectionBetweenLightAndPrisms(laser.beam.light);
+            if (!closestIntersection) {
+                // there is no intersection between laser beam and prism
                 self.canvas.add(laser.beam.light.entity);
                 self.canvas.sendToBack(laser.beam.light.entity);
                 self.canvas.renderAll();
                 return;
             }
 
+            // cut-off main laser beam on intersection point (in the end we have shorter main beam,
+            // it stops exactly on intersection point)
             laser.beam.light.entity.setWidth(laser.beam.light.entity.getCoords()[0].distanceFrom(closestIntersection));
 
+            // save first intersection
             var firstIntersection = closestIntersection;
 
             var firstNormalVector = self.makeNormalVector(firstIntersection, firstIntersection.line);
             laser.beam.light.normalVectors.push(firstNormalVector);
             self.canvas.add(firstNormalVector);
 
-            laser.beam.spectrum.forEach(function (light) {
-                // How much should new beam segment rotate
-                var newAngle = light.wavelength / 100; //TODO use firstNormalVector to compute new angle
+            var firstNormalAngle = maths.computeAngleBetweenTwoFabricLines(laser.beam.light.entity, firstNormalVector);
 
+            laser.beam.spectrum.forEach(function (light) {
+                var n1, n2; // refractive indices
+                var newAngle;
+                var goOutOfDenserEnvironment = true;
+                var isTotalInternalReflection = false;
+
+                if (self.environmentElement != self.prismsElement) {
+                    n1 = self.refractiveIndices[self.environmentElement][light.wavelength].index;
+                    n2 = self.refractiveIndices[self.prismsElement][light.wavelength].index;
+
+                    if (n2 < n1) {
+                        if (Math.abs(firstNormalAngle) > maths.computeCriticalAngle(n1, n2)) {
+                            isTotalInternalReflection = true;
+                        }
+                    }
+                    if (isTotalInternalReflection) {
+                        newAngle = -firstNormalAngle;
+                        goOutOfDenserEnvironment = !goOutOfDenserEnvironment;
+                    } else {
+                        newAngle = maths.computeAngleUsingSnellLaw(Math.abs(firstNormalAngle), n1, n2);
+                        if (firstNormalAngle < 0)
+                            newAngle = -newAngle;
+                    }
+                } else {
+                    newAngle = 0;
+                }
+
+                // move and rotate light by computed values
                 light.entity.setLeft(firstIntersection.x);
                 light.entity.setTop(firstIntersection.y);
-                light.entity.setAngle(laser.beam.light.entity.get("angle") + newAngle);
+                light.entity.setAngle(firstNormalVector.getAngle() + newAngle);
                 light.entity.setCoords();
 
-                // light.clearIntersections();
+                self.fixReflectedAndRefractedAngles(isTotalInternalReflection, laser.beam.light.entity, light.entity, firstNormalAngle);
+
                 var firstIntersectionDrawn = self.makeIntersectionCircle(firstIntersection.x, firstIntersection.y);
                 light.intersections.push(firstIntersectionDrawn);
 
-                // light.clearSegments();
                 light.segments.push(light.entity);
 
-                self.prisms.forEach(function (prism) {
-                    prism.setCoords();
-                });
-                light.entity.setCoords();
-
+                // while there is intersection
                 while (closestIntersection = self.findClosestIntersectionBetweenLightAndPrisms(light)) {
                     var circleDrawn = self.makeIntersectionCircle(closestIntersection.x, closestIntersection.y);
                     light.intersections.push(circleDrawn);
+
                     var newNormalVector = self.makeNormalVector(closestIntersection, closestIntersection.line);
                     light.normalVectors.push(newNormalVector);
                     self.canvas.add(newNormalVector);
+
+                    if (goOutOfDenserEnvironment) {
+                        n1 = self.refractiveIndices[self.prismsElement][light.wavelength].index;
+                        n2 = self.refractiveIndices[self.environmentElement][light.wavelength].index;
+                    } else {
+                        n1 = self.refractiveIndices[self.environmentElement][light.wavelength].index;
+                        n2 = self.refractiveIndices[self.prismsElement][light.wavelength].index;
+                    }
+                    goOutOfDenserEnvironment = !goOutOfDenserEnvironment;
+
+                    isTotalInternalReflection = false;
+                    var normalAngle;
+
+                    if (n1 != n2) {
+                        normalAngle = maths.computeAngleBetweenTwoFabricLines(light.getLastSegment(), newNormalVector);
+
+                        if (n2 < n1) {
+                            if (Math.abs(normalAngle) > maths.computeCriticalAngle(n1, n2)) {
+                                isTotalInternalReflection = true;
+                            }
+                        }
+
+                        if (isTotalInternalReflection) {
+                            newAngle = -normalAngle;
+                            goOutOfDenserEnvironment = !goOutOfDenserEnvironment;
+                        } else {
+                            newAngle = maths.computeAngleUsingSnellLaw(Math.abs(normalAngle), n1, n2);
+                            if (normalAngle < 0) {
+                                newAngle = -newAngle;
+                            }
+                        }
+                    } else {
+                        newAngle = 0;
+                    }
 
                     var newBeamSegment = new fabric.Line([0, 0, 3000, 0], {
                         stroke: light.entity.stroke,
@@ -516,10 +584,10 @@ function App(canvasSelector) {
                         left: closestIntersection.x,
                         top: closestIntersection.y
                     });
-
-                    //TODO use newNormalVector to compute new angle
-                    newBeamSegment.setAngle(newAngle + light.getLastSegment().getAngle());
+                    newBeamSegment.setAngle(newNormalVector.getAngle() + newAngle);
                     newBeamSegment.setCoords();
+
+                    self.fixReflectedAndRefractedAngles(isTotalInternalReflection, light.getLastSegment(), newBeamSegment, normalAngle);
 
                     var removedSegment = light.segments.pop();
                     self.canvas.remove(removedSegment);
@@ -572,6 +640,32 @@ function App(canvasSelector) {
         self.canvas.renderAll();
     };
 
+    this.fixReflectedAndRefractedAngles = function (isTotalInternalReflection, line1, line2, normalAngle) {
+        var vector1, vector2, angleBetweenVectors;
+        vector1 = new fabric.Point(line1.oCoords.tl.x - line1.oCoords.tr.x, line1.oCoords.tl.y - line1.oCoords.tr.y);
+        vector2 = new fabric.Point(line2.oCoords.tr.x - line2.oCoords.tl.x, line2.oCoords.tr.y - line2.oCoords.tl.y);
+
+        angleBetweenVectors = Math.atan2(vector2.y, vector2.x) - Math.atan2(vector1.y, vector1.x);
+        if (angleBetweenVectors < 0) angleBetweenVectors += 2 * Math.PI;
+        angleBetweenVectors = maths.toDegrees(angleBetweenVectors);
+
+        if (!isTotalInternalReflection) {
+            if (angleBetweenVectors < 90 || angleBetweenVectors > 270) {
+                line2.setAngle(line2.getAngle() + 180);
+                line2.setCoords();
+            }
+        } else {
+            var div1 = Math.abs(angleBetweenVectors - 2 * normalAngle);
+            var div2 = Math.abs(angleBetweenVectors - Math.abs(2 * normalAngle));
+            var div3 = Math.abs(angleBetweenVectors - (360 - Math.abs(2 * normalAngle)));
+            var precision = 0.00001;
+            if (div1 > precision && div2 > precision && div3 > precision) {
+                line2.setAngle(line2.getAngle() + 180);
+                line2.setCoords();
+            }
+        }
+    };
+
     this.setColorOfEnvironmentAndPrismsByTheirComposition = function () {
         //TODO add this to Option class
         var color = {
@@ -588,7 +682,7 @@ function App(canvasSelector) {
     };
 
     this.makeNormalVector = function (point, points) {
-        var angle = maths.computeAngleBetweenTwoLines({x1: 0, y1: 0, x2: 1, y2: 0}, points);
+        var angle = maths.computeAngleBetweenTwoLines({x1: 0, y1: 0, x2: 1, y2: 0}, points, true);
         return new fabric.Line([0, 0, self.lengthOfNormalVectors, 0], {
             stroke: self.colorOfNormalVectors,
             strokeWidth: self.widthOfNormalVectors,
@@ -603,7 +697,7 @@ function App(canvasSelector) {
             originY: 'center',
             left: point.x,
             top: point.y,
-            angle: angle + 90
+            angle: -angle + 90
         });
     };
 
@@ -843,6 +937,7 @@ function Light(wavelength) {
     };
 
     this.findClosestIntersectionWithPrism = function (prism) {
+        this.getLastSegment().setCoords();
         var lastSegmentCoords = this.getLastSegment().getCoords();
         var intersection = maths.intersectLinePolygon(lastSegmentCoords[0], lastSegmentCoords[1], prism.getPointsCoords());
         if (intersection.status === "Intersection") {
@@ -902,6 +997,7 @@ function Prism(x, y) {
     };
 
     this.getPointsCoords = function () {
+        this.setCoords();
         return [
             new fabric.Point(this.entity.oCoords.br.x, this.entity.oCoords.br.y),
             new fabric.Point(this.entity.oCoords.bl.x, this.entity.oCoords.bl.y),
@@ -925,19 +1021,19 @@ function Gui(app) {
 
         var showIntersectionsOption = intersectionsFolder.add(app, "showIntersections");
         showIntersectionsOption.name("Show Intersections");
-        showIntersectionsOption.onChange(function (value) {
+        showIntersectionsOption.onChange(function () {
             app.toggleIntersectionsVisibility();
         });
 
         var colorOfIntersectionsController = intersectionsFolder.addColor(app, "colorOfIntersections");
         colorOfIntersectionsController.name("Color of Intersections");
-        colorOfIntersectionsController.onChange(function (value) {
+        colorOfIntersectionsController.onChange(function () {
             app.changeColorOfIntersections();
         });
 
         var sizeOfIntersectionsController = intersectionsFolder.add(app, "sizeOfIntersections", 1, 6);
         sizeOfIntersectionsController.name("Size of Intersections");
-        sizeOfIntersectionsController.onChange(function (value) {
+        sizeOfIntersectionsController.onChange(function () {
             app.changeSizeOfIntersections();
         });
 
@@ -945,25 +1041,25 @@ function Gui(app) {
 
         var showNormalVectorsOption = normalVectorsFolder.add(app, "showNormalVectors");
         showNormalVectorsOption.name("Show Normal Vectors");
-        showNormalVectorsOption.onChange(function (value) {
+        showNormalVectorsOption.onChange(function () {
             app.toggleNormalVectorsVisibility();
         });
 
         var colorOfNormalVectorsController = normalVectorsFolder.addColor(app, "colorOfNormalVectors");
         colorOfNormalVectorsController.name("Color of Normal Vectors");
-        colorOfNormalVectorsController.onChange(function (value) {
+        colorOfNormalVectorsController.onChange(function () {
             app.changeColorOfNormalVectors();
         });
 
         var widthOfNormalVectorsController = normalVectorsFolder.add(app, "widthOfNormalVectors", 1, 6);
         widthOfNormalVectorsController.name("Width of Normal Vectors");
-        widthOfNormalVectorsController.onChange(function (value) {
+        widthOfNormalVectorsController.onChange(function () {
             app.changeWidthOfNormalVectors();
         });
 
         var lengthOfNormalVectorsController = normalVectorsFolder.add(app, "lengthOfNormalVectors", 1, 300);
         lengthOfNormalVectorsController.name("Length of Normal Vectors");
-        lengthOfNormalVectorsController.onChange(function (value) {
+        lengthOfNormalVectorsController.onChange(function () {
             app.changeLengthOfNormalVectors();
         });
 
@@ -971,13 +1067,13 @@ function Gui(app) {
 
         var environmentElementController = indexOfRefractionFolder.add(app, "environmentElement", ["air", "water", "glass"]);
         environmentElementController.name("Environment");
-        environmentElementController.onChange(function (value) {
+        environmentElementController.onChange(function () {
             app.redraw();
         });
 
         var prismsElementController = indexOfRefractionFolder.add(app, "prismsElement", ["air", "water", "glass"]);
         prismsElementController.name("Prisms");
-        prismsElementController.onChange(function (value) {
+        prismsElementController.onChange(function () {
             app.redraw();
         });
 
@@ -1022,6 +1118,7 @@ function Gui(app) {
             laser.beam.createSpectrum();
             app.redraw();
         });
+        controller.step(1);
         controller.name("Wavelength [nm]");
         controller.domElement.style.pointerEvents = "none";
         controller.domElement.style.opacity = .5;
@@ -1042,7 +1139,7 @@ function Gui(app) {
     };
 
     // http://stackoverflow.com/questions/28466589/fabricjs-how-i-can-make-an-angle-measurement
-    maths.computeAngleBetweenTwoLines = function (line1, line2) {
+    maths.computeAngleBetweenTwoLines = function (line1, line2, dontNormalize) {
         var y11 = line1.y1;
         var y12 = line1.y2;
         var y21 = line2.y1;
@@ -1059,9 +1156,48 @@ function Gui(app) {
         var angle = angle1 - angle2;
         angle = maths.toDegrees(angle);
         if (angle < 0) angle = -angle;
-        // if (360 - angle < angle) angle = 360 - angle;
 
-        return 360 - angle;
+        if (!dontNormalize) {
+            if (360 - angle < angle) angle = 360 - angle;
+        }
+
+        return angle;
+    };
+
+    maths.computeAngleBetweenTwoFabricLines = function (line1, line2) {
+        line1.setCoords();
+        line2.setCoords();
+        var angle1 = line1.getAngle();
+        var angle2 = line2.getAngle();
+        while (angle1 < 0) {
+            angle1 += 360;
+        }
+        while (angle1 > 360) {
+            angle1 -= 360;
+        }
+        while (angle2 < 0) {
+            angle2 += 360;
+        }
+        while (angle2 > 360) {
+            angle2 -= 360;
+        }
+
+        var result = angle1 - angle2;
+
+        if (result > 180)
+            result -= 360;
+
+        if (result < -180)
+            result += 360;
+
+        if (result < -90) {
+            result = 180 - Math.abs(result);
+        } else if (result > 90) {
+            result = -(180 - result);
+        }
+
+
+        return result;
     };
 
     maths.intersectLinePolygon = function (a1, a2, points) {
@@ -1157,5 +1293,19 @@ function Gui(app) {
 
     maths.computeAngleUsingSnellLaw = function (t1, n1, n2) {
         return maths.toDegrees(Math.asin((n1 * Math.sin(maths.toRadians(t1))) / n2));
-    }
+    };
+
+    maths.computeCriticalAngle = function (n1, n2) {
+        return maths.toDegrees(Math.asin(n2 / n1));
+    };
+
+    // http://jsfiddle.net/PerroAZUL/zdaY8/1/
+    maths.ptInTriangle = function (p, p0, p1, p2) {
+        var A = 1 / 2 * (-p1.y * p2.x + p0.y * (-p1.x + p2.x) + p0.x * (p1.y - p2.y) + p1.x * p2.y);
+        var sign = A < 0 ? -1 : 1;
+        var s = (p0.y * p2.x - p0.x * p2.y + (p2.y - p0.y) * p.x + (p0.x - p2.x) * p.y) * sign;
+        var t = (p0.x * p1.y - p0.y * p1.x + (p0.y - p1.y) * p.x + (p1.x - p0.x) * p.y) * sign;
+
+        return s > 0 && t > 0 && (s + t) < 2 * A * sign;
+    };
 }(window.maths = window.maths || {}, jQuery));
