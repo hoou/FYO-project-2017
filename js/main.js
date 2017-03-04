@@ -1,28 +1,17 @@
 function App(canvasSelector) {
     var self = this;
 
-    this.canvas = null;
+    var canvas;
+    var gui;
+    var options;
 
-    this.gui = null;
+    var lasers = [];
+    var prisms = [];
 
-    this.lasers = [];
-    this.prisms = [];
-
-    this.showIntersections = false;
-    this.colorOfIntersections = "#000000";
-    this.sizeOfIntersections = 0;
-
-    this.showNormalVectors = false;
-    this.colorOfNormalVectors = "#000000";
-    this.widthOfNormalVectors = 0;
-    this.lengthOfNormalVectors = 0;
-
-    this.environmentElement = null;
-    this.prismsElement = null;
-    this.refractiveIndices = {};
+    var refractiveIndices = {};
 
     this.init = function () {
-        this.canvas = new fabric.Canvas(canvasSelector, {
+        canvas = new fabric.Canvas(canvasSelector, {
             renderOnAddRemove: false,
             skipTargetFind: false,
             backgroundColor: "#000",
@@ -30,18 +19,13 @@ function App(canvasSelector) {
             selection: false
         });
 
-        //TODO just for testing
-        this.canvas.on('mouse:down', function (e) {
-            self.getMouseCoords(e);
-        });
-
         this.resizeCanvas();
 
         this.loadRefractiveIndices();
 
-        this.setupOptions();
+        options = new Options();
 
-        this.gui = new Gui(self);
+        gui = new Gui(self);
 
         this.addLaser(100, 200);
         this.addPrism(300, 100);
@@ -49,130 +33,120 @@ function App(canvasSelector) {
 
     this.reset = function () {
         this.destroyIntersectionsAndSegmentsAndNormals();
-        this.lasers.forEach(function (laser) {
-            self.canvas.remove(laser.entity);
+        lasers.forEach(function (laser) {
+            canvas.remove(laser.entity);
         });
-        this.lasers = [];
-        this.prisms.forEach(function (prism) {
-            self.canvas.remove(prism.entity);
+        lasers = [];
+        prisms.forEach(function (prism) {
+            canvas.remove(prism.entity);
         });
-        this.prisms = [];
+        prisms = [];
 
-        this.setupOptions();
+        options.reset();
 
-        this.canvas.renderAll();
-
-        this.gui.reset();
+        gui.reset();
 
         this.addLaser(100, 200);
         this.addPrism(300, 100);
+
+        canvas.renderAll();
     };
 
-    this.setupOptions = function () {
-        this.showIntersections = false;
-        this.colorOfIntersections = "#ffff00";
-        this.sizeOfIntersections = 3;
-
-        this.showNormalVectors = false;
-        this.colorOfNormalVectors = "#30ff76";
-        this.widthOfNormalVectors = 1;
-        this.lengthOfNormalVectors = 100;
-
-        this.environmentElement = "air";
-        this.prismsElement = "glass";
+    this.getOptions = function () {
+        return options;
     };
 
     this.loadRefractiveIndices = function () {
         // https://refractiveindex.info/?shelf=other&book=air&page=Ciddor
         // standard air: dry air at 15 °C, 101.325 kPa and with 450 ppm CO2 content
         $.getJSON("js/refractive_indices/air.json", function (json) {
-            self.refractiveIndices.air = json;
+            refractiveIndices.air = json;
         });
 
         // https://refractiveindex.info/?shelf=main&book=H2O&page=Daimon-19.0C
         // distilled water at 19.0°C
         $.getJSON("js/refractive_indices/water.json", function (json) {
-            self.refractiveIndices.water = json;
+            refractiveIndices.water = json;
         });
 
         // https://refractiveindex.info/?shelf=glass&book=BK7&page=SCHOTT
         // BK7 glass
         $.getJSON("js/refractive_indices/glass.json", function (json) {
-            self.refractiveIndices.glass = json;
+            refractiveIndices.glass = json;
         });
     };
 
     this.changeColorOfIntersections = function () {
-        this.lasers.forEach(function (laser) {
+        lasers.forEach(function (laser) {
             laser.beam.spectrum.forEach(function (light) {
                 light.intersections.forEach(function (intersection) {
-                    intersection.setFill(self.colorOfIntersections);
+                    intersection.setFill(options.colorOfIntersections);
                 })
             })
         });
-        this.canvas.renderAll();
+        canvas.renderAll();
     };
 
     this.changeSizeOfIntersections = function () {
-        this.lasers.forEach(function (laser) {
+        lasers.forEach(function (laser) {
             laser.beam.spectrum.forEach(function (light) {
                 light.intersections.forEach(function (intersection) {
-                    intersection.setRadius(self.sizeOfIntersections);
+                    intersection.setRadius(options.sizeOfIntersections);
                 })
             })
         });
-        this.canvas.renderAll();
+        canvas.renderAll();
     };
 
     this.changeColorOfNormalVectors = function () {
-        this.lasers.forEach(function (laser) {
+        lasers.forEach(function (laser) {
             laser.beam.spectrum.forEach(function (light) {
                 laser.beam.light.normalVectors.forEach(function (normalVector) {
-                    normalVector.setStroke(self.colorOfNormalVectors);
+                    normalVector.setStroke(options.colorOfNormalVectors);
                 });
                 light.normalVectors.forEach(function (normalVector) {
-                    normalVector.setStroke(self.colorOfNormalVectors);
+                    normalVector.setStroke(options.colorOfNormalVectors);
                 })
             })
         });
-        this.canvas.renderAll();
+        canvas.renderAll();
     };
 
     this.changeWidthOfNormalVectors = function () {
-        this.lasers.forEach(function (laser) {
+        lasers.forEach(function (laser) {
             laser.beam.light.normalVectors.forEach(function (normalVector) {
-                normalVector.setStrokeWidth(self.widthOfNormalVectors);
+                normalVector.setStrokeWidth(options.widthOfNormalVectors);
             });
             laser.beam.spectrum.forEach(function (light) {
                 light.normalVectors.forEach(function (normalVector) {
-                    normalVector.setStrokeWidth(self.widthOfNormalVectors);
+                    normalVector.setStrokeWidth(options.widthOfNormalVectors);
                 })
             })
         });
-        this.canvas.renderAll();
+        canvas.renderAll();
     };
 
     this.changeLengthOfNormalVectors = function () {
-        this.lasers.forEach(function (laser) {
+        lasers.forEach(function (laser) {
             laser.beam.light.normalVectors.forEach(function (normalVector) {
-                normalVector.setWidth(self.lengthOfNormalVectors);
+                normalVector.setWidth(options.lengthOfNormalVectors);
             });
             laser.beam.spectrum.forEach(function (light) {
                 light.normalVectors.forEach(function (normalVector) {
-                    normalVector.setWidth(self.lengthOfNormalVectors);
+                    normalVector.setWidth(options.lengthOfNormalVectors);
                 })
             })
         });
-        this.canvas.renderAll();
+        canvas.renderAll();
     };
 
     this.addLaser = function (x, y) {
-        if (this.lasers.length >= 5) {
+        if (lasers.length >= 5) {
             alert("Maximum 5 lasers allowed");
             return;
         }
 
-        var newLaser = new Laser(this.lasers.length + 1, x, y);
+        var newLaser = new Laser(lasers.length + 1, x, y);
 
         newLaser.entity.on("mousedown", function (e) {
             var innerTarget = newLaser.entity._searchPossibleTargets(e.e);
@@ -196,11 +170,11 @@ function App(canvasSelector) {
             self.redraw();
         });
 
-        this.canvas.add(newLaser.entity);
+        canvas.add(newLaser.entity);
 
         var shouldRemove = false;
 
-        this.canvas.forEachObject(function (target) {
+        canvas.forEachObject(function (target) {
             if (target === newLaser.entity) return; //bypass self
             if (!target.name || (target.name != 'prism' && target.name != 'laser')) return;
 
@@ -213,17 +187,17 @@ function App(canvasSelector) {
         });
 
         if (shouldRemove) {
-            this.canvas.remove(newLaser.entity);
+            canvas.remove(newLaser.entity);
         }
         else {
-            this.lasers.push(newLaser);
-            this.gui.addLaser(newLaser);
+            lasers.push(newLaser);
+            gui.addLaser(newLaser);
             this.redraw();
         }
     };
 
     this.addPrism = function (x, y) {
-        var newPrism = new Prism(x || 20, y || self.canvas.getHeight() - 220);
+        var newPrism = new Prism(x || 20, y || canvas.getHeight() - 220);
         newPrism.entity.on("moving", function () {
             self.intersectingCheck(this);
             self.redraw();
@@ -231,11 +205,11 @@ function App(canvasSelector) {
         newPrism.entity.on("rotating", self.redraw);
         newPrism.entity.on("modified", self.redraw);
 
-        this.canvas.add(newPrism.entity);
+        canvas.add(newPrism.entity);
 
         var shouldRemove = false;
 
-        this.canvas.forEachObject(function (target) {
+        canvas.forEachObject(function (target) {
             if (target === newPrism.entity) return; //bypass self
             if (!target.name || (target.name != 'prism' && target.name != 'laser')) return;
 
@@ -248,11 +222,11 @@ function App(canvasSelector) {
         });
 
         if (shouldRemove) {
-            this.canvas.remove(newPrism.entity);
+            canvas.remove(newPrism.entity);
         }
         else {
-            this.prisms.push(newPrism);
-            this.canvas.sendToBack(newPrism.entity);
+            prisms.push(newPrism);
+            canvas.sendToBack(newPrism.entity);
             this.redraw();
         }
     };
@@ -295,7 +269,7 @@ function App(canvasSelector) {
 
     this.findClosestIntersectionBetweenLightAndPrisms = function (light) {
         var closestIntersectionOfAll = null;
-        this.prisms.forEach(function (prism) {
+        prisms.forEach(function (prism) {
             var closestIntersectionWithOnePrism = light.findClosestIntersectionWithPrism(prism);
             if (closestIntersectionWithOnePrism) {
                 if (closestIntersectionOfAll) {
@@ -311,19 +285,19 @@ function App(canvasSelector) {
     };
 
     this.destroyIntersectionsAndSegmentsAndNormals = function () {
-        this.lasers.forEach(function (laser) {
+        lasers.forEach(function (laser) {
             laser.beam.light.intersections.forEach(function (intersection) {
-                self.canvas.remove(intersection);
+                canvas.remove(intersection);
             });
             laser.beam.light.intersections = [];
 
             laser.beam.light.segments.forEach(function (segment) {
-                self.canvas.remove(segment);
+                canvas.remove(segment);
             });
             laser.beam.light.segments = [];
 
             laser.beam.light.normalVectors.forEach(function (normalVector) {
-                self.canvas.remove(normalVector);
+                canvas.remove(normalVector);
             });
             laser.beam.light.normalVectors = [];
 
@@ -334,17 +308,17 @@ function App(canvasSelector) {
     this.removeSpectrum = function (laser) {
         laser.beam.spectrum.forEach(function (light) {
             light.intersections.forEach(function (intersection) {
-                self.canvas.remove(intersection);
+                canvas.remove(intersection);
             });
             light.intersections = [];
 
             light.segments.forEach(function (segment) {
-                self.canvas.remove(segment);
+                canvas.remove(segment);
             });
             light.segments = [];
 
             light.normalVectors.forEach(function (normalVector) {
-                self.canvas.remove(normalVector);
+                canvas.remove(normalVector);
             });
             light.normalVectors = [];
         });
@@ -357,8 +331,8 @@ function App(canvasSelector) {
 
     this.makeIntersectionCircle = function (x, y) {
         var newCircle = new fabric.Circle({
-            radius: self.sizeOfIntersections,
-            fill: self.colorOfIntersections,
+            radius: options.sizeOfIntersections,
+            fill: options.colorOfIntersections,
             left: x,
             top: y,
             originX: 'center',
@@ -369,8 +343,8 @@ function App(canvasSelector) {
             hasRotatingPoint: false
         });
 
-        if (this.showIntersections) {
-            this.canvas.add(newCircle);
+        if (options.showIntersections) {
+            canvas.add(newCircle);
             this.makeIntersectionCircle.drawn = true;
         } else {
             this.makeIntersectionCircle.drawn = false;
@@ -381,29 +355,29 @@ function App(canvasSelector) {
     this.makeIntersectionCircle.drawn = false;
 
     this.toggleIntersectionsVisibility = function () {
-        if (this.showIntersections) {
+        if (options.showIntersections) {
             if (!this.makeIntersectionCircle.drawn) {
-                this.lasers.forEach(function (laser) {
+                lasers.forEach(function (laser) {
                     laser.beam.spectrum.forEach(function (light) {
                         light.intersections.forEach(function (intersection) {
-                            self.canvas.add(intersection);
-                            self.canvas.bringToFront(intersection);
+                            canvas.add(intersection);
+                            canvas.bringToFront(intersection);
                         })
                     })
                 });
                 this.makeIntersectionCircle.drawn = true;
             } else {
-                this.lasers.forEach(function (laser) {
+                lasers.forEach(function (laser) {
                     laser.beam.spectrum.forEach(function (light) {
                         light.intersections.forEach(function (intersection) {
                             intersection.visible = true;
-                            self.canvas.bringToFront(intersection);
+                            canvas.bringToFront(intersection);
                         })
                     })
                 })
             }
         } else {
-            this.lasers.forEach(function (laser) {
+            lasers.forEach(function (laser) {
                 laser.beam.spectrum.forEach(function (light) {
                     light.intersections.forEach(function (intersection) {
                         intersection.visible = false;
@@ -411,12 +385,12 @@ function App(canvasSelector) {
                 })
             })
         }
-        this.canvas.renderAll();
+        canvas.renderAll();
     };
 
     this.toggleNormalVectorsVisibility = function () {
-        if (this.showNormalVectors) {
-            this.lasers.forEach(function (laser) {
+        if (options.showNormalVectors) {
+            lasers.forEach(function (laser) {
                 laser.beam.light.normalVectors.forEach(function (normalVector) {
                     normalVector.visible = true;
                 });
@@ -427,7 +401,7 @@ function App(canvasSelector) {
                 })
             })
         } else {
-            this.lasers.forEach(function (laser) {
+            lasers.forEach(function (laser) {
                 laser.beam.light.normalVectors.forEach(function (normalVector) {
                     normalVector.visible = false;
                 });
@@ -438,40 +412,40 @@ function App(canvasSelector) {
                 })
             })
         }
-        this.canvas.renderAll();
+        canvas.renderAll();
     };
 
     this.redraw = function () {
         self.destroyIntersectionsAndSegmentsAndNormals();
-        self.lasers.forEach(function (laser) {
+        lasers.forEach(function (laser) {
             laser.beam.light.updateStroke();
             laser.beam.light.entity.setWidth(3000);
             laser.beam.light.segments.push(laser.beam.light.entity);
 
             // if laser is turned off, no need to redraw light
             if (!laser.beam.getVisible()) {
-                self.canvas.renderAll();
+                canvas.renderAll();
                 return;
             }
 
             // if prisms and environment are composed of the same element(material),
             // there will be no reflection or refraction whatsoever, so just render main beam that goes straight
-            if (self.environmentElement == self.prismsElement) {
-                self.canvas.add(laser.beam.light.entity);
-                self.canvas.sendToBack(laser.beam.light.entity);
-                self.prisms.forEach(function (prism) {
-                    self.canvas.sendToBack(prism.entity);
+            if (options.environmentElement == options.prismsElement) {
+                canvas.add(laser.beam.light.entity);
+                canvas.sendToBack(laser.beam.light.entity);
+                prisms.forEach(function (prism) {
+                    canvas.sendToBack(prism.entity);
                 });
-                self.canvas.renderAll();
+                canvas.renderAll();
                 return;
             }
 
             var closestIntersection = self.findClosestIntersectionBetweenLightAndPrisms(laser.beam.light);
             if (!closestIntersection) {
                 // there is no intersection between laser beam and prism
-                self.canvas.add(laser.beam.light.entity);
-                self.canvas.sendToBack(laser.beam.light.entity);
-                self.canvas.renderAll();
+                canvas.add(laser.beam.light.entity);
+                canvas.sendToBack(laser.beam.light.entity);
+                canvas.renderAll();
                 return;
             }
 
@@ -484,7 +458,7 @@ function App(canvasSelector) {
 
             var firstNormalVector = self.makeNormalVector(firstIntersection, firstIntersection.line);
             laser.beam.light.normalVectors.push(firstNormalVector);
-            self.canvas.add(firstNormalVector);
+            canvas.add(firstNormalVector);
 
             var firstNormalAngle = maths.computeAngleBetweenTwoFabricLines(laser.beam.light.entity, firstNormalVector);
 
@@ -494,9 +468,9 @@ function App(canvasSelector) {
                 var goOutOfDenserEnvironment = true;
                 var isTotalInternalReflection = false;
 
-                if (self.environmentElement != self.prismsElement) {
-                    n1 = self.refractiveIndices[self.environmentElement][light.wavelength].index;
-                    n2 = self.refractiveIndices[self.prismsElement][light.wavelength].index;
+                if (options.environmentElement != options.prismsElement) {
+                    n1 = refractiveIndices[options.environmentElement][light.wavelength].index;
+                    n2 = refractiveIndices[options.prismsElement][light.wavelength].index;
 
                     if (n2 < n1) {
                         if (Math.abs(firstNormalAngle) > maths.computeCriticalAngle(n1, n2)) {
@@ -535,14 +509,14 @@ function App(canvasSelector) {
 
                     var newNormalVector = self.makeNormalVector(closestIntersection, closestIntersection.line);
                     light.normalVectors.push(newNormalVector);
-                    self.canvas.add(newNormalVector);
+                    canvas.add(newNormalVector);
 
                     if (goOutOfDenserEnvironment) {
-                        n1 = self.refractiveIndices[self.prismsElement][light.wavelength].index;
-                        n2 = self.refractiveIndices[self.environmentElement][light.wavelength].index;
+                        n1 = refractiveIndices[options.prismsElement][light.wavelength].index;
+                        n2 = refractiveIndices[options.environmentElement][light.wavelength].index;
                     } else {
-                        n1 = self.refractiveIndices[self.environmentElement][light.wavelength].index;
-                        n2 = self.refractiveIndices[self.prismsElement][light.wavelength].index;
+                        n1 = refractiveIndices[options.environmentElement][light.wavelength].index;
+                        n2 = refractiveIndices[options.prismsElement][light.wavelength].index;
                     }
                     goOutOfDenserEnvironment = !goOutOfDenserEnvironment;
 
@@ -590,7 +564,7 @@ function App(canvasSelector) {
                     self.fixReflectedAndRefractedAngles(isTotalInternalReflection, light.getLastSegment(), newBeamSegment, normalAngle);
 
                     var removedSegment = light.segments.pop();
-                    self.canvas.remove(removedSegment);
+                    canvas.remove(removedSegment);
 
                     var shortenLastSegment = new fabric.Line([0, 0, closestIntersection.distanceFrom(new fabric.Point(removedSegment.left, removedSegment.top)), 0], {
                         stroke: removedSegment.stroke,
@@ -612,32 +586,32 @@ function App(canvasSelector) {
                 }
                 // Draw all segments
                 light.segments.forEach(function (segment) {
-                    self.canvas.add(segment);
+                    canvas.add(segment);
                 });
 
-                if (self.showIntersections) {
+                if (options.showIntersections) {
                     light.intersections.forEach(function (intersection) {
-                        self.canvas.bringToFront(intersection);
+                        canvas.bringToFront(intersection);
                     });
                 }
-                if (self.showNormalVectors) {
+                if (options.showNormalVectors) {
                     light.normalVectors.forEach(function (normalVector) {
                         normalVector.visible = true;
                     });
                 }
             });
-            self.canvas.add(laser.beam.light.entity);
-            self.canvas.sendToBack(laser.beam.light.entity);
-            if (self.showNormalVectors) {
+            canvas.add(laser.beam.light.entity);
+            canvas.sendToBack(laser.beam.light.entity);
+            if (options.showNormalVectors) {
                 laser.beam.light.normalVectors.forEach(function (normalVector) {
                     normalVector.visible = true;
                 });
             }
         });
 
-        self.setColorOfEnvironmentAndPrismsByTheirComposition();
+        self.setColorOfEnvironmentAndPrismsByTheirElementComposition();
 
-        self.canvas.renderAll();
+        canvas.renderAll();
     };
 
     this.fixReflectedAndRefractedAngles = function (isTotalInternalReflection, line1, line2, normalAngle) {
@@ -666,26 +640,18 @@ function App(canvasSelector) {
         }
     };
 
-    this.setColorOfEnvironmentAndPrismsByTheirComposition = function () {
-        //TODO add this to Option class
-        var color = {
-            'default': "#000000",
-            'air': "#000000",
-            'water': "#070533",
-            'glass': "#2c2c2c"
-        };
-
-        this.canvas.setBackgroundColor(color[this.environmentElement]);
-        this.prisms.forEach(function (prism) {
-            prism.entity.setFill(color[self.prismsElement]);
+    this.setColorOfEnvironmentAndPrismsByTheirElementComposition = function () {
+        canvas.setBackgroundColor(options.elementColors[options.environmentElement]);
+        prisms.forEach(function (prism) {
+            prism.entity.setFill(options.elementColors[options.prismsElement]);
         })
     };
 
     this.makeNormalVector = function (point, points) {
         var angle = maths.computeAngleBetweenTwoLines({x1: 0, y1: 0, x2: 1, y2: 0}, points, true);
-        return new fabric.Line([0, 0, self.lengthOfNormalVectors, 0], {
-            stroke: self.colorOfNormalVectors,
-            strokeWidth: self.widthOfNormalVectors,
+        return new fabric.Line([0, 0, options.lengthOfNormalVectors, 0], {
+            stroke: options.colorOfNormalVectors,
+            strokeWidth: options.widthOfNormalVectors,
             strokeDashArray: [5, 5],
             visible: false,
             selectable: false,
@@ -703,15 +669,15 @@ function App(canvasSelector) {
 
     this.resizeCanvas = function () {
         if ($(window).width() < 800) {
-            this.canvas.setWidth(800);
+            canvas.setWidth(800);
         } else {
-            this.canvas.setWidth($(window).width());
+            canvas.setWidth($(window).width());
         }
 
         if ($(window).height() < 600) {
-            this.canvas.setHeight(600);
+            canvas.setHeight(600);
         } else {
-            this.canvas.setHeight($(window).height());
+            canvas.setHeight($(window).height());
         }
     };
 
@@ -719,16 +685,34 @@ function App(canvasSelector) {
         self.resizeCanvas();
     });
 
-    //TODO just for testing
-    this.getMouseCoords = function (event) {
-        var pointer = this.canvas.getPointer(event.e);
-        var posY = pointer.y;
-        var posX = pointer.x;
-        // console.log(posX + ", " + posY);    // Log to console
-    };
-
     // On construction call init method
     this.init();
+}
+
+function Options() {
+    this.reset = function () {
+        this.showIntersections = false;
+        this.colorOfIntersections = "#ffff00";
+        this.sizeOfIntersections = 3;
+
+        this.showNormalVectors = false;
+        this.colorOfNormalVectors = "#30ff76";
+        this.widthOfNormalVectors = 1;
+        this.lengthOfNormalVectors = 100;
+
+        this.environmentElement = "air";
+        this.prismsElement = "glass";
+
+        this.elementColors = {
+            'default': "#000000",
+            'air': "#000000",
+            'water': "#070533",
+            'glass': "#2c2c2c"
+        };
+    };
+
+    // init options
+    this.reset();
 }
 
 function Laser(id, x, y) {
@@ -1019,19 +1003,19 @@ function Gui(app) {
 
         var intersectionsFolder = this.gui.addFolder("Intersections");
 
-        var showIntersectionsOption = intersectionsFolder.add(app, "showIntersections");
+        var showIntersectionsOption = intersectionsFolder.add(app.getOptions(), "showIntersections");
         showIntersectionsOption.name("Show Intersections");
         showIntersectionsOption.onChange(function () {
             app.toggleIntersectionsVisibility();
         });
 
-        var colorOfIntersectionsController = intersectionsFolder.addColor(app, "colorOfIntersections");
+        var colorOfIntersectionsController = intersectionsFolder.addColor(app.getOptions(), "colorOfIntersections");
         colorOfIntersectionsController.name("Color of Intersections");
         colorOfIntersectionsController.onChange(function () {
             app.changeColorOfIntersections();
         });
 
-        var sizeOfIntersectionsController = intersectionsFolder.add(app, "sizeOfIntersections", 1, 6);
+        var sizeOfIntersectionsController = intersectionsFolder.add(app.getOptions(), "sizeOfIntersections", 1, 6);
         sizeOfIntersectionsController.name("Size of Intersections");
         sizeOfIntersectionsController.onChange(function () {
             app.changeSizeOfIntersections();
@@ -1039,25 +1023,25 @@ function Gui(app) {
 
         var normalVectorsFolder = this.gui.addFolder("Normal vectors");
 
-        var showNormalVectorsOption = normalVectorsFolder.add(app, "showNormalVectors");
+        var showNormalVectorsOption = normalVectorsFolder.add(app.getOptions(), "showNormalVectors");
         showNormalVectorsOption.name("Show Normal Vectors");
         showNormalVectorsOption.onChange(function () {
             app.toggleNormalVectorsVisibility();
         });
 
-        var colorOfNormalVectorsController = normalVectorsFolder.addColor(app, "colorOfNormalVectors");
+        var colorOfNormalVectorsController = normalVectorsFolder.addColor(app.getOptions(), "colorOfNormalVectors");
         colorOfNormalVectorsController.name("Color of Normal Vectors");
         colorOfNormalVectorsController.onChange(function () {
             app.changeColorOfNormalVectors();
         });
 
-        var widthOfNormalVectorsController = normalVectorsFolder.add(app, "widthOfNormalVectors", 1, 6);
+        var widthOfNormalVectorsController = normalVectorsFolder.add(app.getOptions(), "widthOfNormalVectors", 1, 6);
         widthOfNormalVectorsController.name("Width of Normal Vectors");
         widthOfNormalVectorsController.onChange(function () {
             app.changeWidthOfNormalVectors();
         });
 
-        var lengthOfNormalVectorsController = normalVectorsFolder.add(app, "lengthOfNormalVectors", 1, 300);
+        var lengthOfNormalVectorsController = normalVectorsFolder.add(app.getOptions(), "lengthOfNormalVectors", 1, 300);
         lengthOfNormalVectorsController.name("Length of Normal Vectors");
         lengthOfNormalVectorsController.onChange(function () {
             app.changeLengthOfNormalVectors();
@@ -1065,13 +1049,13 @@ function Gui(app) {
 
         var indexOfRefractionFolder = this.gui.addFolder("Index of Refraction");
 
-        var environmentElementController = indexOfRefractionFolder.add(app, "environmentElement", ["air", "water", "glass"]);
+        var environmentElementController = indexOfRefractionFolder.add(app.getOptions(), "environmentElement", ["air", "water", "glass"]);
         environmentElementController.name("Environment");
         environmentElementController.onChange(function () {
             app.redraw();
         });
 
-        var prismsElementController = indexOfRefractionFolder.add(app, "prismsElement", ["air", "water", "glass"]);
+        var prismsElementController = indexOfRefractionFolder.add(app.getOptions(), "prismsElement", ["air", "water", "glass"]);
         prismsElementController.name("Prisms");
         prismsElementController.onChange(function () {
             app.redraw();
