@@ -7,6 +7,7 @@ function App(canvasSelector) {
 
     var lasers = [];
     var prisms = [];
+    var helperWhiteLines = [];
 
     var refractiveIndices = {};
 
@@ -285,6 +286,11 @@ function App(canvasSelector) {
     };
 
     this.destroyIntersectionsAndSegmentsAndNormals = function () {
+        helperWhiteLines.forEach(function (line) {
+            canvas.remove(line);
+        });
+        helperWhiteLines = [];
+
         lasers.forEach(function (laser) {
             laser.beam.light.intersections.forEach(function (intersection) {
                 canvas.remove(intersection);
@@ -417,6 +423,9 @@ function App(canvasSelector) {
 
     this.redraw = function () {
         self.destroyIntersectionsAndSegmentsAndNormals();
+
+        var allSegments = {};
+
         lasers.forEach(function (laser) {
             laser.beam.light.updateStroke();
             laser.beam.light.entity.setWidth(3000);
@@ -584,8 +593,16 @@ function App(canvasSelector) {
 
                     light.segments.push(shortenLastSegment, newBeamSegment);
                 }
-                // Draw all segments
+
+                // Save and draw all segments
                 light.segments.forEach(function (segment) {
+                    segment.setCoords();
+                    var index = Math.round(segment.oCoords.tl.x) + " " + Math.round(segment.oCoords.tl.y) + " " + Math.round(segment.oCoords.tr.x) + " " + Math.round(segment.oCoords.tr.y);
+                    if (!allSegments[index]) {
+                        allSegments[index] = [];
+                    }
+                    allSegments[index].push(segment);
+
                     canvas.add(segment);
                 });
 
@@ -609,9 +626,46 @@ function App(canvasSelector) {
             }
         });
 
+        if (options.isBlendColorsToWhite)
+            self.blendColorsToWhite(allSegments);
+
         self.setColorOfEnvironmentAndPrismsByTheirElementComposition();
 
         canvas.renderAll();
+    };
+
+    this.blendColorsToWhite = function (allSegments) {
+        for (var key in allSegments) {
+            if (allSegments[key].length > 3) {
+                allSegments[key].forEach(function (segment) {
+                    segment.visible = false;
+                });
+                var angle = maths.computeAngleBetweenTwoFabricLines(allSegments[key][0], new fabric.Line([0, 0, 1, 0]));
+                var whiteLine = new fabric.Line([0, 0, allSegments[key][0].width, 0], {
+                    stroke: 'white',
+                    strokeWidth: 2,
+                    angle: angle,
+                    left: allSegments[key][0].left,
+                    top: allSegments[key][0].top,
+                    originX: 'left',
+                    originY: 'top',
+                    selectable: false,
+                    hasControls: false,
+                    hasBorders: false,
+                    hasRotatingPoint: false,
+                    centeredRotation: false,
+                });
+                whiteLine.setCoords();
+
+                var div1 = Math.abs(whiteLine.oCoords.tr.x - allSegments[key][0].oCoords.tr.x);
+                var div2 = Math.abs(whiteLine.oCoords.tr.y - allSegments[key][0].oCoords.tr.y);
+                if (div1 > 1 || div2 > 1) {
+                    whiteLine.setAngle(whiteLine.getAngle() + 180);
+                }
+                helperWhiteLines.push(whiteLine);
+                canvas.add(whiteLine);
+            }
+        }
     };
 
     this.fixReflectedAndRefractedAngles = function (isTotalInternalReflection, line1, line2, normalAngle) {
@@ -709,6 +763,8 @@ function Options() {
             'water': "#070533",
             'glass': "#2c2c2c"
         };
+
+        this.isBlendColorsToWhite = false;
     };
 
     // init options
@@ -1000,6 +1056,12 @@ function Gui(app) {
         var generalFolder = this.gui.addFolder("General");
 
         generalFolder.add(app, "reset").name("Reset App");
+
+        var blendColorsToWhiteOption = generalFolder.add(app.getOptions(), "isBlendColorsToWhite");
+        blendColorsToWhiteOption.name("Blend Colors (experimental)");
+        blendColorsToWhiteOption.onChange(function () {
+            app.redraw();
+        });
 
         var intersectionsFolder = this.gui.addFolder("Intersections");
 
