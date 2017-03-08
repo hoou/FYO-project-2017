@@ -11,6 +11,8 @@ function App(canvasSelector) {
 
     var refractiveIndices = {};
 
+    var signatureText;
+
     this.init = function () {
         canvas = new fabric.Canvas(canvasSelector, {
             renderOnAddRemove: false,
@@ -19,6 +21,19 @@ function App(canvasSelector) {
             preserveObjectStacking: true,
             selection: false
         });
+
+        signatureText = new fabric.Text("Created by Tibor Mikita and Martin Matejčík", {
+            fill: "white",
+            fontSize: 12,
+            selectable: false,
+            hasControls: false,
+            hasBorders: false,
+            originX: 'top',
+            originY: 'left',
+            top: canvas.getHeight() - 30,
+            left: canvas.getWidth() - 130
+        });
+        canvas.add(signatureText);
 
         this.resizeCanvas();
 
@@ -733,6 +748,11 @@ function App(canvasSelector) {
         } else {
             canvas.setHeight($(window).height());
         }
+
+        signatureText.setLeft(canvas.getWidth() - 130);
+        signatureText.setTop(canvas.getHeight() - 30);
+
+        canvas.renderAll();
     };
 
     window.addEventListener("resize", function () {
