@@ -37,8 +37,6 @@ function App(canvasSelector) {
 
         this.resizeCanvas();
 
-        this.loadRefractiveIndices();
-
         options = new Options();
 
         gui = new Gui(self);
@@ -72,24 +70,8 @@ function App(canvasSelector) {
         return options;
     };
 
-    this.loadRefractiveIndices = function () {
-        // https://refractiveindex.info/?shelf=other&book=air&page=Ciddor
-        // standard air: dry air at 15 °C, 101.325 kPa and with 450 ppm CO2 content
-        $.getJSON("js/refractive_indices/air.json", function (json) {
-            refractiveIndices.air = json;
-        });
-
-        // https://refractiveindex.info/?shelf=main&book=H2O&page=Daimon-19.0C
-        // distilled water at 19.0°C
-        $.getJSON("js/refractive_indices/water.json", function (json) {
-            refractiveIndices.water = json;
-        });
-
-        // https://refractiveindex.info/?shelf=glass&book=BK7&page=SCHOTT
-        // BK7 glass
-        $.getJSON("js/refractive_indices/glass.json", function (json) {
-            refractiveIndices.glass = json;
-        });
+    this.loadRefractiveIndices = function (material, data) {
+        refractiveIndices[material] = JSON.parse(data);
     };
 
     this.changeColorOfIntersections = function () {

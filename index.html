@@ -14,6 +14,10 @@
     <script src="js/fabric.js"></script>
     <script src="js/dat.gui.js"></script>
 
+    <script type="text/javascript" src="js/refractive_indices/air.js"></script>
+    <script type="text/javascript" src="js/refractive_indices/glass.js"></script>
+    <script type="text/javascript" src="js/refractive_indices/water.js"></script>
+
     <script type="text/javascript" src="js/main.js"></script>
 </head>
 <body>
@@ -22,6 +26,18 @@
 
 <script>
     var app = new App('c');
+
+    // https://refractiveindex.info/?shelf=other&book=air&page=Ciddor
+    // standard air: dry air at 15 °C, 101.325 kPa and with 450 ppm CO2 content
+    app.loadRefractiveIndices("air", data_air);
+
+    // https://refractiveindex.info/?shelf=glass&book=BK7&page=SCHOTT
+    // BK7 glass
+    app.loadRefractiveIndices("glass", data_glass);
+
+    // https://refractiveindex.info/?shelf=main&book=H2O&page=Daimon-19.0C
+    // distilled water at 19.0°C
+    app.loadRefractiveIndices("water", data_water);
 </script>
 </body>
 </html>
